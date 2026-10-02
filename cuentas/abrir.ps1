@@ -11,13 +11,18 @@ if (Test-Path -LiteralPath $stdout) {
     $existingUrl = Get-Content -LiteralPath $stdout -First 1
     if ($existingUrl -match '^http://127\.0\.0\.1:\d+$') {
         try {
-            $status = Invoke-RestMethod -Uri "$existingUrl/api/config" -TimeoutSec 2
+            $status = Invoke-RestMethod -Uri "$existingUrl/api/session" -TimeoutSec 2
             if ($status.app -eq 'cuentas-local') {
                 if (-not $NoBrowser) { Start-Process $existingUrl }
                 Write-Output $existingUrl
                 exit 0
             }
         } catch { }
+        $legacy = $null
+        try { $legacy = Invoke-RestMethod -Uri "$existingUrl/api/config" -TimeoutSec 2 } catch { }
+        if ($legacy.app -eq 'cuentas-local') {
+            throw 'Hay una version anterior del servidor abierta. Cierre ese proceso antes de iniciar la version con hogares. No ejecute ambas contra la misma base.'
+        }
     }
 }
 $process = Start-Process -FilePath $runtime -ArgumentList @("`"$script`"", '--auto-port') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
@@ -28,7 +33,7 @@ for ($attempt = 0; $attempt -lt 40; $attempt++) {
         $url = Get-Content -LiteralPath $stdout -First 1
         if ($url -match '^http://127\.0\.0\.1:\d+$') {
             try {
-                $status = Invoke-RestMethod -Uri "$url/api/config" -TimeoutSec 2
+                $status = Invoke-RestMethod -Uri "$url/api/session" -TimeoutSec 2
                 if ($status.app -ne 'cuentas-local') { continue }
             } catch { continue }
             if (-not $NoBrowser) { Start-Process $url }

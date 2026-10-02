@@ -1,5 +1,11 @@
 # Base local e importador de cuentas
 
+> Version con hogares: usar el README.md de la raiz para registro, permisos,
+> respaldos y repartos por persona. Las referencias Mi/Amor y los comandos de
+> revision de dos personas de este documento describen la version anterior.
+> No usar scripts de esa version contra una base migrada. Cerrar el servidor
+> anterior antes de iniciar el nuevo; no ejecutarlos contra la misma base.
+
 La base esta en `datos/cuentas.sqlite3`. La carpeta `entrada` recibe los Excel del banco. La ejecucion es manual.
 
 ## Pantalla en el navegador

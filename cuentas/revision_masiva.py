@@ -5,6 +5,7 @@ import re
 from datetime import date
 
 import gestor as g
+import repartos
 
 
 def where(filters, pending=False):
@@ -46,6 +47,7 @@ def plan(db,filters):
     rows=[dict(r) for r in db.execute('SELECT m.* FROM movements m'+clause+' ORDER BY id',args)]
     eligible=[];skipped=[]
     for r in rows:
+        if repartos.people(db):r['allocations']=repartos.get(db,r['id'])
         reasons=[]
         if r['kind']=='pago_tarjeta':reasons.append('Pago de tarjeta')
         if not (r['category'] or '').strip():reasons.append('Sin categoria')
@@ -58,6 +60,7 @@ def plan(db,filters):
                 selected=len(rows),eligible=len(eligible),skipped=skipped,
                 mi=g.decimal(sum(r['mi'] or 0 for r in expenses)),
                 amor=g.decimal(sum(r['amor'] or 0 for r in expenses)),
+                allocations=repartos.totals(db,expenses),
                 incomplete=sum(r['mi'] is None or r['amor'] is None for r in expenses),
                 unbalanced=sum(not r['special_case'] and r['mi'] is not None and r['amor'] is not None and r['mi']+r['amor']!=r['amount'] for r in expenses)),eligible
 

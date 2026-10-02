@@ -138,6 +138,8 @@ def connect(path):
     categorias.migrate(db)
     import cortes
     cortes.migrate(db)
+    import repartos
+    repartos.migrate(db)
     return db
 
 
@@ -281,6 +283,9 @@ def import_bank(db,dbpath,path,month=None):
             matches=[m for m in db.execute("SELECT id,normalized_description FROM movements WHERE purchase_date=? AND amount=? AND period=? AND kind=? AND state!='duplicado'",(r['purchase_date'],r['amount'],r['period'],r['kind']))
                      if solapamientos.similar_name(m['normalized_description'],r['normalized_description'])]
             mid=insert(db,'movements',dict(batch_id=batch,source_key=f'banco:{fingerprint}:{sheet}:{row}',**r))
+            if r['kind']!='pago_tarjeta':
+                import repartos
+                repartos.default(db,mid,r['amount'])
             add_observation(db,batch,f'{sheet}:{row}',mid,sheet,row,raw)
             assess(db,mid)
             if len(choices)>1 or any(s in r['normalized_description'] for s in ('shell','copec')):
@@ -291,10 +296,18 @@ def import_bank(db,dbpath,path,month=None):
     return dict(lote=batch,reutilizado=False,movimientos=len(data),reconocidos=len(recognized),nuevos=len(data)-len(recognized))
 
 
-def review(db,mid,action,category=None,mi=None,amor=None,month=None,duplicate_of=None,note='',special_case=None):
+def review(db,mid,action,category=None,mi=None,amor=None,month=None,duplicate_of=None,note='',special_case=None,allocations=None):
     row=db.execute('SELECT * FROM movements WHERE id=?',(mid,)).fetchone()
     if not row:raise ValueError('Movimiento inexistente')
     before=dict(row); after=dict(row)
+    import repartos
+    values=None
+    if repartos.people(db) and action in ('editar','aceptar'):
+        values=repartos.validate(db,mid,allocations,row['amount'],special_case if special_case is not None else row['special_case'])
+        a,b=repartos.compatibility(db,values)
+        mi,amor=decimal(a),decimal(b)
+        before['allocations']=repartos.get(db,mid)
+        after['allocations']=values
     if action in ('descartar','restaurar'):
         if before['kind']=='pago_tarjeta' or before['state']=='duplicado':
             raise ValueError('Este movimiento no admite descarte o restauracion')
@@ -341,6 +354,7 @@ def review(db,mid,action,category=None,mi=None,amor=None,month=None,duplicate_of
     with db:
         fields=['category','mi','amor','period','state','duplicate_of','special_case']
         db.execute('UPDATE movements SET '+','.join(f'{f}=?' for f in fields)+' WHERE id=?',[after[f] for f in fields]+[mid])
+        if values is not None:repartos.write(db,mid,values)
         if action in ('aceptar','duplicado','descartar'):db.execute('UPDATE issues SET resolved=1 WHERE movement_id=?',(mid,))
         elif action=='restaurar':assess(db,mid)
         elif action=='conservar':db.execute("UPDATE issues SET resolved=1 WHERE movement_id=? AND code='posible_duplicado'",(mid,))
