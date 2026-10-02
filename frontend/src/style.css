@@ -1,0 +1,298 @@
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.tabs {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.discard-action {
+  margin-top: 12px;
+  width: 100%;
+}
+dialog {
+  width: 560px;
+  max-height: 90dvh;
+  overflow: auto;
+}
+.kv > div {
+  display: contents;
+}
+.kv dt {
+  color: var(--muted);
+}
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail-actions {
+  flex-wrap: wrap;
+  position: static;
+}
+.metrics strong {
+  font-variant-numeric: tabular-nums;
+}
+button svg {
+  pointer-events: none;
+}
+.account-page {
+  max-width: 1000px;
+  padding: 32px 20px;
+  margin: 0 auto;
+}
+.signin {
+  max-width: 480px;
+  padding-top: 72px;
+}
+.signin fieldset {
+  display: grid;
+  gap: 18px;
+}
+.signin .brand {
+  margin-bottom: 32px;
+}
+.household-selector {
+  display: grid;
+  gap: 8px;
+  margin: 0 16px 20px;
+}
+.household-selector select {
+  width: 100%;
+  min-width: 0;
+}
+.household-list {
+  display: grid;
+}
+.household-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.household-info {
+  display: grid;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.household-info small {
+  color: var(--muted);
+}
+.household-history {
+  margin: 0 0 24px;
+}
+.household-tabs {
+  margin-bottom: 8px;
+}
+@media (max-width: 760px) {
+  .household-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .household-list .household-info {
+    flex-basis: calc(100% - 60px);
+    order: 2;
+  }
+  .household-list .household-row > .icon {
+    margin-left: auto;
+  }
+}
+.household-panel h2 {
+  margin-top: 28px;
+}
+.household-panel .table-wrap {
+  min-height: 0;
+}
+.person-id {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.claim-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.claim-form label {
+  flex: 1;
+  min-width: 220px;
+}
+.allocation-summary {
+  display: grid;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.split-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.pending-strip {
+  flex-wrap: wrap;
+}
+.ledger-metrics,
+.cut-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.sidebar-bottom {
+  overflow-wrap: anywhere;
+}
+.sidebar-bottom .account-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 6px;
+  white-space: normal;
+}
+.account-link > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-link small {
+  display: block;
+}
+.sidebar-bottom .account-link:hover,
+.sidebar-bottom .account-link[aria-current="page"] {
+  background: var(--line);
+}
+.my-account {
+  max-width: 720px;
+}
+.my-account .field { margin: 0; }
+.my-account h2 { margin-bottom: 18px; }
+.my-account .danger { color: #a52e2e; border-color: #dab8b8; background: #fff; }
+.sidebar-bottom > .icon-button { flex: 0 0 32px; width: 32px; padding: 6px; }
+.my-account section {
+  padding: 0 0 28px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+.my-account fieldset {
+  display: grid;
+  gap: 18px;
+  max-width: 480px;
+}
+.my-account input {
+  width: 100%;
+  min-width: 0;
+}
+.my-account button {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+}
+.my-account p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .ledger-metrics,
+  .cut-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .household-selector {
+    margin: 12px;
+  }
+  .signin {
+    padding-top: 32px;
+  }
+  .household-panel .section-heading {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .sidebar-bottom {
+    display: flex;
+    margin-top: 12px;
+    padding: 8px 0;
+  }
+  .sidebar-bottom > div {
+    flex: 1;
+  }
+  .table-wrap table,
+  .cut-list-wrap table {
+    table-layout: auto;
+    min-width: 800px;
+  }
+  .table-wrap th,
+  .table-wrap td,
+  .cut-list-wrap th,
+  .cut-list-wrap td {
+    display: table-cell;
+  }
+  .household-panel .table-wrap {
+    max-height: none;
+  }
+  .household-panel table {
+    min-width: 0;
+    width: 100%;
+  }
+  .household-panel thead {
+    display: none;
+  }
+  .household-panel tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .household-panel tbody td {
+    display: block;
+    width: auto;
+    height: auto;
+    padding: 6px 0;
+    border: 0;
+  }
+  .household-panel tbody td:nth-child(1),
+  .household-panel tbody td:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+  .household-panel tbody td:nth-child(2) {
+    display: flex;
+    align-items: center;
+  }
+  .household-panel tbody td:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+#statsPanel .table-wrap {
+  min-height: 0;
+}
+#statsPanel .stats-canvas,
+#statsPanel .explanation-canvas {
+  position: relative;
+  min-width: 0;
+}
+.table-wrap table th:last-child {
+  width: 46px;
+}
+@media (max-width: 760px) {
+  .heading {
+    flex-wrap: wrap;
+  }
+  .heading-actions {
+    margin-top: 8px;
+  }
+  .tabs {
+    gap: 14px;
+  }
+  .category-tools {
+    flex-wrap: wrap;
+    max-width: 144px;
+  }
+  .scope select {
+    min-width: 0;
+  }
+  .stats-chart-section h2 {
+    font-size: 18px;
+  }
+}
