@@ -55,3 +55,9 @@
 **/*.key
 **/credentials*.json
 **/secrets*.json
+
+# Configuracion de Docker
+!/.dockerignore
+!/Dockerfile
+!/compose.yaml
+!/DOCKER.md

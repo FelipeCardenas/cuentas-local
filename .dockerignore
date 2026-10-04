@@ -1,0 +1,24 @@
+# Excluir todo por defecto
+**
+
+# Permitir solo los archivos necesarios
+!Dockerfile
+!.dockerignore
+!THIRD_PARTY_NOTICES.md
+
+!cuentas/
+!cuentas/*.py
+cuentas/test_*.py
+!cuentas/requirements.txt
+!cuentas/web/
+!cuentas/web/style.css
+
+!frontend/
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.js
+!frontend/src/
+!frontend/src/*.js
+!frontend/src/*.jsx
+!frontend/src/*.css
