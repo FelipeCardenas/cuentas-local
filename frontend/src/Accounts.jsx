@@ -666,6 +666,15 @@ export function Households({ account, config, onChanged }) {
                       defaultValue={editor.alias || ""}
                     />
                   </Field>
+                  <Field label="Correo de contacto (opcional)">
+                    <input
+                      name="contact_email"
+                      type="email"
+                      maxLength={254}
+                      autoComplete="email"
+                      defaultValue={editor.contact_email || ""}
+                    />
+                  </Field>
                 </>
               )}
               <ErrorBox error={error} />

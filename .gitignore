@@ -61,3 +61,4 @@
 !/Dockerfile
 !/compose.yaml
 !/DOCKER.md
+!/compose.real.yaml
