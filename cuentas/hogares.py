@@ -37,6 +37,15 @@ def password_hash(password, salt):
     return hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 600_000).hex()
 
 
+def contact_email(value):
+    if not isinstance(value, str):
+        raise ValueError('Correo de contacto invalido')
+    value = value.strip()
+    if value and (len(value) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', value)):
+        raise ValueError('Correo de contacto invalido')
+    return value
+
+
 class Directory:
     def __init__(self, ledger, initial_name='Departamento', initial_address=''):
         self.ledger = Path(ledger).resolve()
@@ -76,6 +85,8 @@ class Directory:
                 home_id TEXT NOT NULL REFERENCES homes(id), PRIMARY KEY(account_id,request_id));
             ''')
             with db:
+                if 'contact_email' not in {r[1] for r in db.execute('PRAGMA table_info(people)')}:
+                    db.execute("ALTER TABLE people ADD COLUMN contact_email TEXT NOT NULL DEFAULT ''")
                 if 'deleted_at' not in {r[1] for r in db.execute('PRAGMA table_info(accounts)')}:
                     db.execute('ALTER TABLE accounts ADD COLUMN deleted_at TEXT')
                 if 'created_at' not in {r[1] for r in db.execute('PRAGMA table_info(homes)')}:
@@ -275,8 +286,8 @@ class Directory:
                            (text(data.get('name'),'Nombre'),text(data.get('address'),'Direccion',500),home_id))
             elif action == 'add_person':
                 pid=uid()
-                db.execute('INSERT INTO people(id,name,surname,alias) VALUES(?,?,?,?)',
-                           (pid,text(data.get('name'),'Nombre'),str(data.get('surname','')).strip()[:160],str(data.get('alias','')).strip()[:160]))
+                db.execute('INSERT INTO people(id,name,surname,alias,contact_email) VALUES(?,?,?,?,?)',
+                           (pid,text(data.get('name'),'Nombre'),str(data.get('surname','')).strip()[:160],str(data.get('alias','')).strip()[:160],contact_email(data.get('contact_email',''))))
                 position=db.execute('SELECT COALESCE(MAX(position),-1)+1 FROM members WHERE home_id=?',(home_id,)).fetchone()[0]
                 db.execute('INSERT INTO members VALUES(?,?,?,?,?)',(home_id,pid,'member',1,position))
             elif action in ('edit_person','membership'):
@@ -284,8 +295,9 @@ class Directory:
                 member=db.execute('SELECT * FROM members WHERE home_id=? AND person_id=?',(home_id,pid)).fetchone()
                 if not member:raise ValueError('Integrante inexistente')
                 if action == 'edit_person':
-                    db.execute('UPDATE people SET name=?,surname=?,alias=? WHERE id=?',
-                               (text(data.get('name'),'Nombre'),str(data.get('surname','')).strip()[:160],str(data.get('alias','')).strip()[:160],pid))
+                    email=db.execute('SELECT contact_email FROM people WHERE id=?',(pid,)).fetchone()[0]
+                    db.execute('UPDATE people SET name=?,surname=?,alias=?,contact_email=? WHERE id=?',
+                               (text(data.get('name'),'Nombre'),str(data.get('surname','')).strip()[:160],str(data.get('alias','')).strip()[:160],contact_email(data.get('contact_email',email)),pid))
                 else:
                     role=data.get('role',member['role']); active=data.get('active',bool(member['active']))
                     if role not in ('admin','member') or type(active) is not bool:raise ValueError('Permisos invalidos')

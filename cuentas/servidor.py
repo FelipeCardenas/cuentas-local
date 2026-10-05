@@ -250,7 +250,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--db',type=Path,default=g.DEFAULT_DB);p.add_argument('--port',type=int,default=8765);p.add_argument('--auto-port',action='store_true');p.add_argument('--frontend',choices=('react','legacy'),default='react');p.add_argument('--initial-household',default='Departamento');p.add_argument('--initial-address',default='');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--db',type=Path,default=g.DEFAULT_DB);p.add_argument('--port',type=int,default=8765);p.add_argument('--auto-port',action='store_true');p.add_argument('--frontend',choices=('react','legacy'),default='react');p.add_argument('--initial-household',default='Departamento');p.add_argument('--initial-address',default='');p.add_argument('--host',default='127.0.0.1');args=p.parse_args()
     static_root=REACT_STATIC if args.frontend=='react' else STATIC
     if args.frontend=='legacy':
         p.error('La interfaz anterior no admite cuentas y hogares. Use React; para volver a v1.0.0 utilice el respaldo previo a la migracion.')
@@ -264,7 +264,7 @@ def main():
             source.backup(destination)
     with closing(g.connect(args.db)):pass
     for port in range(args.port,args.port+(20 if args.auto_port else 1)):
-        try:server=ThreadingHTTPServer(('127.0.0.1',port),Handler);break
+        try:server=ThreadingHTTPServer((args.host,port),Handler);break
         except OSError:
             if port==args.port+(19 if args.auto_port else 0):raise
     server.dbpath=args.db;server.token=secrets.token_urlsafe(32);server.static_root=static_root

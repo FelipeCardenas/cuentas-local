@@ -313,6 +313,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     .click();
   await page.getByLabel("Nombre", { exact: true }).fill("Tercera");
   await page.getByLabel("Apellido", { exact: true }).fill("Prueba");
+  await page.getByLabel("Correo de contacto (opcional)").fill("tercera@example.test");
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.locator(".household-panel table tbody tr")).toHaveCount(3);
   const firstPeople = (
@@ -321,6 +322,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ).json()
   ).people;
   const targetId = firstPeople.find((p) => p.name === "Tercera").id;
+  expect(firstPeople.find((p) => p.id === targetId).contact_email).toBe("tercera@example.test");
+  await page.getByRole("button", { name: "Editar Tercera", exact: true }).click();
+  await expect(page.getByLabel("Correo de contacto (opcional)")).toHaveValue("tercera@example.test");
+  await page.screenshot({path: path.join(screenshots, "person-email-desktop.png"), fullPage: true});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path: path.join(screenshots, "person-email-mobile.png"), fullPage: true});
+  await page.getByLabel("Correo de contacto (opcional)").fill("actualizado@example.test");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Editar Tercera", exact: true }).click();
+  await expect(page.getByLabel("Correo de contacto (opcional)")).toHaveValue("actualizado@example.test");
+  await page.getByLabel("Correo de contacto (opcional)").fill("");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Editar Tercera", exact: true }).click();
+  await expect(page.getByLabel("Correo de contacto (opcional)")).toHaveValue("");
+  await page.getByRole("dialog").getByRole("button", {name:"Cerrar",exact:true}).click();
+  await page.setViewportSize({width:1440,height:1000});
   await page.screenshot({
     path: path.join(screenshots, "households-desktop.png"),
     fullPage: true,

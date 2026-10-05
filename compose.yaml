@@ -1,0 +1,20 @@
+name: cuentas-docker-prueba
+
+services:
+  cuentas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8767:8767"
+    volumes:
+      - datos-prueba:/data
+    init: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  datos-prueba:

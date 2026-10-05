@@ -41,6 +41,42 @@ class HouseholdTests(unittest.TestCase):
         self.directory.manage(self.account,self.home,dict(action='add_person',name='Tercera'))
         self.sync()
 
+    def test_optional_contact_email_create_edit_and_clear(self):
+        self.directory.manage(self.account,self.home,dict(action='add_person',name='Contacto',contact_email='  persona@example.test  '))
+        person=self.directory.details(self.account,self.home)['people'][-1]
+        self.assertEqual(person['contact_email'],'persona@example.test')
+        self.assertFalse(person['linked'])
+        data=dict(action='edit_person',person_id=person['id'],name='Contacto actualizado')
+        self.directory.manage(self.account,self.home,data)
+        self.assertEqual(self.directory.members(self.home)[-1]['contact_email'],'persona@example.test')
+        self.directory.manage(self.account,self.home,{**data,'contact_email':'otro@example.test'})
+        self.assertEqual(self.directory.members(self.home)[-1]['contact_email'],'otro@example.test')
+        self.directory.manage(self.account,self.home,{**data,'contact_email':''})
+        self.assertEqual(self.directory.members(self.home)[-1]['contact_email'],'')
+        self.directory.manage(self.account,self.home,dict(action='edit_person',person_id=self.ids[0],name='Ana',contact_email='contacto@example.test'))
+        self.assertEqual(self.directory.overview(self.account)['user']['email'],'ana@example.test')
+
+    def test_contact_email_validation_and_permissions(self):
+        before=self.directory.members(self.home)
+        for invalid in ['sin-arroba','a@','a b@example.test','a@example.test\nb@example.test',42,None,'a'*250+'@example.test']:
+            with self.subTest(value=invalid),self.assertRaises(ValueError):
+                self.directory.manage(self.account,self.home,dict(action='add_person',name='Invalida',contact_email=invalid))
+        self.assertEqual(before,self.directory.members(self.home))
+        _,other=self.register()
+        with self.assertRaises(hogares.AccessError):
+            self.directory.manage(other,self.home,dict(action='edit_person',person_id=self.ids[0],name='Ana',contact_email='otro@example.test'))
+
+    def test_contact_email_migration_preserves_existing_people(self):
+        with closing(self.directory.connect()) as db,db:
+            db.execute('ALTER TABLE people DROP COLUMN contact_email')
+            before=[tuple(r) for r in db.execute('SELECT id,name,surname,alias,account_id FROM people ORDER BY id')]
+        migrated=hogares.Directory(self.path)
+        with closing(migrated.connect()) as db:
+            self.assertEqual(before,[tuple(r) for r in db.execute('SELECT id,name,surname,alias,account_id FROM people ORDER BY id')])
+            self.assertTrue(all(r[0]=='' for r in db.execute('SELECT contact_email FROM people')))
+        hogares.Directory(self.path)
+        self.assertIsNotNone(migrated.session(self.raw))
+
     def test_password_session_and_last_admin(self):
         with closing(self.directory.connect()) as db:
             row=db.execute('SELECT * FROM accounts').fetchone()

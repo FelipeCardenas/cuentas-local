@@ -1,0 +1,20 @@
+name: cuentas-docker-real
+
+services:
+  cuentas:
+    image: cuentas-docker-prueba-cuentas:latest
+    ports:
+      - "127.0.0.1:8767:8767"
+    volumes:
+      - datos-reales:/data
+    init: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  datos-reales:
+    external: true
+    name: cuentas-datos-reales-20261005
