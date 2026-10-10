@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Chart from "chart.js/auto";
+import { CalendarDays, ChartNoAxesCombined } from "lucide-react";
+import CategoryStatistics from "./CategoryStatistics";
 import { useQuery, Status, Field, Metrics } from "./ui";
 import { money, pct, months, average, projection } from "./domain";
 const colors = ["#246d5c", "#597da0", "#d47716"];
@@ -63,19 +65,25 @@ export default function Statistics({ revision }) {
   const query = useQuery("/api/statistics", revision);
   return (
     <section id="statsPanel">
-      <WeeklyStatistics revision={revision} />
+      <div className="stats-overview">
+      <div className="stats-annual">
       <Status {...query} />
       {query.data &&
         (Object.keys(query.data.years).length ? (
           <StatisticsContent
             years={query.data.years}
             people={query.data.people || []}
+            revision={revision}
           />
         ) : (
           <div className="empty">
             <h2>Sin gastos confirmados</h2>
           </div>
         ))}
+      </div>
+      <WeeklyStatistics revision={revision} />
+      </div>
+      <CategoryStatistics revision={revision} Graph={Graph} />
     </section>
   );
 }
@@ -93,9 +101,17 @@ function WeeklyStatistics({ revision }) {
   const rows = years[year]?.[month] || [];
   const range = (r) => `${r.start.slice(8)}/${month} – ${r.end.slice(8)}/${month}`;
   const values = rows.map((r) => r[activePerson] ?? 0);
+  const categories = useQuery(year ? "/api/statistics-categories?" + new URLSearchParams({year, person: activePerson, basis: "purchase_date"}) : null, revision);
+  const monthIndex = Number(month) - 1;
+  const count = categories.data?.counts[monthIndex];
+  const purchases = categories.data?.purchases[monthIndex];
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const mostExpensive = rows.length ? values.indexOf(Math.max(...values)) : -1;
+  const topCategories = (categories.data?.rows || []).filter((r) => r.months[monthIndex] !== null)
+    .sort((a, b) => Number(b.months[monthIndex]) - Number(a.months[monthIndex])).slice(0, 5);
   return (
-    <section className="stats-chart-section" id="weeklyStatistics">
-      <h2>Gasto semanal</h2>
+    <section className="stats-monthly" id="weeklyStatistics">
+      <h2 className="stats-section-title"><CalendarDays aria-hidden="true" />Análisis del mes</h2>
       <Status {...query} />
       {query.data && !options.length && <p>Sin gastos confirmados.</p>}
       {!!options.length && <>
@@ -112,19 +128,32 @@ function WeeklyStatistics({ revision }) {
           </select></Field>
         </div>
         <p className="muted">Fecha de compra · lunes a domingo · solo días del mes · confirmados menos devoluciones · CLP</p>
+        <Status {...categories} />
         {!rows.length ? <p>Sin gastos confirmados en este mes.</p> : <>
+          <Metrics className="stats-month-metrics" items={[
+            ["Gasto neto del mes", money(total), `${months[monthIndex]} ${year}`],
+            ["Cantidad de compras", count ?? "—", "Confirmadas"],
+            ["Promedio por compra", money(count ? Number(purchases) / count : null), "Sin devoluciones"],
+            ["Semana más cara", `Semana ${mostExpensive + 1}`, money(values[mostExpensive])],
+          ]} />
+          <h3>Gasto semanal</h3>
           <Graph label="Gasto semanal del mes; valores en tabla" labels={rows.map(range)} datasets={[{label: people.find((p) => p.id === activePerson)?.name || "Total", data: values}]} />
+          <h3>Detalle por semana</h3>
           <div className="table-wrap"><table>
             <thead><tr><th>Semana</th><th>Fechas</th><th>Movimientos del hogar</th><th>Gasto neto CLP</th></tr></thead>
             <tbody>{rows.map((r, i) => <tr key={r.start}><td>Semana {i + 1}</td><td>{range(r)}</td><td>{r.count}</td><td className="numeric">{money(values[i])}</td></tr>)}</tbody>
             <tfoot><tr><th colSpan={3}>Total {months[Number(month) - 1]} {year}</th><td className="numeric">{money(values.reduce((sum, v) => sum + v, 0))}</td></tr></tfoot>
+          </table></div>
+          <h3>Top categorías del mes</h3>
+          <div className="table-wrap"><table><thead><tr><th>Categoría</th><th className="numeric">Gasto neto</th><th className="numeric">% del total</th></tr></thead>
+            <tbody>{topCategories.map((r) => <tr key={r.name}><td>{r.name}</td><td className="numeric">{money(r.months[monthIndex])}</td><td className="numeric">{pct(total ? Number(r.months[monthIndex]) / total * 100 : null)}</td></tr>)}</tbody>
           </table></div>
         </>}
       </>}
     </section>
   );
 }
-function StatisticsContent({ years, people }) {
+function StatisticsContent({ years, people, revision }) {
   const options = Object.keys(years).sort().reverse(),
     [year, setYear] = useState(options[0]),
     [compare, setCompare] = useState(options[1] || ""),
@@ -154,7 +183,8 @@ function StatisticsContent({ years, people }) {
   if (projected && trend[proj.last + 1] !== null)
     trend[proj.last] = a[proj.last];
   return (
-    <>
+    <div className="stats-annual-content">
+      <h2 className="stats-section-title"><ChartNoAxesCombined aria-hidden="true" />Comparación anual</h2>
       <div className="filters stats-filters">
         <Field label="Año">
           <select value={year} onChange={(e) => setYear(e.target.value)}>
@@ -211,8 +241,9 @@ function StatisticsContent({ years, people }) {
         {...{ year, compare, person }}
         personName={people.find((p) => p.id === person)?.name || "Total"}
         latest={a.reduce((n, v, i) => (v === null ? n : i), 0)}
+        revision={revision}
       />
-      <section className="stats-chart-section">
+      <section className="stats-chart-section stats-comparison">
         <h2>Comparativa mensual</h2>
         <Graph
           label="Comparativa mensual; valores en tabla"
@@ -223,7 +254,7 @@ function StatisticsContent({ years, people }) {
           ]}
         />
       </section>
-      <section className="stats-chart-section">
+      <section className="stats-chart-section stats-trend">
         <h2>Tendencia mensual</h2>
         <p className="muted">
           {projected
@@ -241,7 +272,7 @@ function StatisticsContent({ years, people }) {
         />
       </section>
       <Metrics
-        className="stats-metrics"
+        className="stats-metrics stats-forecast"
         items={[
           [
             "Gasto futuro proyectado",
@@ -257,7 +288,7 @@ function StatisticsContent({ years, people }) {
           ],
         ]}
       />
-      <div className="table-wrap">
+      <section className="stats-month-detail"><h3>Detalle mensual</h3><div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -299,11 +330,11 @@ function StatisticsContent({ years, people }) {
             })}
           </tbody>
         </table>
-      </div>
-    </>
+      </div></section>
+    </div>
   );
 }
-function Explanation({ year, compare, person, personName, latest }) {
+function Explanation({ year, compare, person, personName, latest, revision }) {
   const [m, setMonth] = useState(String(latest + 1).padStart(2, "0")),
     [group, setGroup] = useState("categories"),
     [direction, setDirection] = useState("all");
@@ -317,6 +348,7 @@ function Explanation({ year, compare, person, personName, latest }) {
             person,
           })
       : null,
+    revision,
   );
   const data = query.data,
     rows = (data?.[group] || []).filter((r) =>
@@ -354,6 +386,11 @@ function Explanation({ year, compare, person, personName, latest }) {
       )}
       {data?.comparable && (
         <>
+          <Graph horizontal label="Diez mayores diferencias; detalle en tabla"
+            labels={rows.slice(0, 10).map((r) => r.name)}
+            datasets={[{label: "Diferencia", data: rows.slice(0, 10).map((r) => r.delta),
+              color: rows.slice(0, 10).map((r) => r.delta > 0 ? "#d47716" : "#246d5c")}]} />
+          <details className="stats-explanation-detail"><summary>Detalle de la variación</summary>
           <p>
             El gasto registrado{" "}
             {data.delta > 0
@@ -432,20 +469,6 @@ function Explanation({ year, compare, person, personName, latest }) {
             </Field>
           </div>
           <h3>Mayores diferencias en pesos</h3>
-          <Graph
-            horizontal
-            label="Diez mayores diferencias; detalle en tabla"
-            labels={rows.slice(0, 10).map((r) => r.name)}
-            datasets={[
-              {
-                label: "Diferencia",
-                data: rows.slice(0, 10).map((r) => r.delta),
-                color: rows
-                  .slice(0, 10)
-                  .map((r) => (r.delta > 0 ? "#d47716" : "#246d5c")),
-              },
-            ]}
-          />
           <p className="muted">
             {rows.length} grupos · diferencia{" "}
             {direction === "all" ? "total" : "del filtro"}:{" "}
@@ -491,6 +514,7 @@ function Explanation({ year, compare, person, personName, latest }) {
               </tbody>
             </table>
           </div>
+          </details>
         </>
       )}
     </section>

@@ -45,6 +45,12 @@ de compra en semanas de lunes a domingo limitadas al mes seleccionado. Suma
 solo gastos y devoluciones confirmados; mantiene los repartos historicos.
 La comparativa mensual existente sigue usando el periodo asignado.
 
+La vista separa comparacion anual y analisis del mes. Debajo, la matriz de
+categorias muestra los doce meses y totales anuales, con filtros independientes
+de anio, persona, base de fechas y categorias. El selector permite buscar,
+marcar todas o ninguna; solo recalcula la tabla y el grafico de ese bloque.
+Los importes suman gastos confirmados menos devoluciones, sin modificar datos.
+
 En Revision, cada fila pendiente permite confirmar (sin avisos pendientes) o
 rechazar conservando el historial en Descartados. Los casos con avisos se revisan
 desde el detalle. Los cortes guardados permiten descargar su detalle en Excel;

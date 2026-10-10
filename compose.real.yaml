@@ -2,7 +2,8 @@ name: cuentas-docker-real
 
 services:
   cuentas:
-    image: cuentas-local:prod-20261009-2
+    #image: cuentas-local:prod-20261009-2
+    image: cuentas-local:prod-20261010-1
     pull_policy: never
     ports:
       - "127.0.0.1:8767:8767"

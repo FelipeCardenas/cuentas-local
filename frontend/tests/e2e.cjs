@@ -173,11 +173,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByLabel("Mes", { exact: true }).selectOption("09");
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
   await expect(page.locator("#weeklyStatistics tfoot")).toContainText("12.000");
-  await expect(page.locator("#weeklyStatistics tbody tr")).toHaveCount(5);
+  await expect(page.locator("#weeklyStatistics .table-wrap").first().locator("tbody tr")).toHaveCount(5);
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("12");
   await expect(page.locator("#weeklyStatistics")).toContainText("Sin gastos confirmados en este mes.");
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
-  await expect(page.locator("canvas")).toHaveCount(4);
+  await expect(page.locator("canvas")).toHaveCount(5);
+  const annualBefore = await page.locator(".stats-annual > div .stats-metrics").first().innerText();
+  const weeklyBefore = await page.locator("#weeklyStatistics tfoot").innerText();
+  await page.locator(".category-picker summary").click();
+  await page.getByRole("button", { name: "Ninguna", exact: true }).click();
+  await expect(page.locator("#categoryStatistics")).toContainText("No hay categorías seleccionadas.");
+  await expect(page.locator(".stats-annual > div .stats-metrics").first()).toHaveText(annualBefore);
+  await expect(page.locator("#weeklyStatistics tfoot")).toHaveText(weeklyBefore);
+  await page.getByRole("button", { name: "Todas", exact: true }).click();
+  await page.locator(".category-picker summary").click();
+  await page.getByLabel("Año de categorías", { exact: true }).selectOption("2025");
+  await expect(page.locator(".category-pivot tfoot")).toContainText("120.000");
+  await expect(page.getByLabel("Año", { exact: true })).toHaveValue("2026");
   await page.screenshot({
     path: path.join(screenshots, "statistics-desktop.png"),
     fullPage: true,
@@ -421,6 +433,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     "detail/1",
     "statistics",
     "statistics-weekly",
+    "statistics-categories",
     "cuts",
     "export",
     "export-filtered",
