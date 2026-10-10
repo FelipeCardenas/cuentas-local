@@ -281,7 +281,7 @@ def import_bank(db,dbpath,path,month=None):
             r['category']=choices[0]['category'] if choices else None
             r['state']='excluido_gasto' if r['kind']=='pago_tarjeta' else 'pendiente'
             matches=[m for m in db.execute("SELECT id,normalized_description FROM movements WHERE purchase_date=? AND amount=? AND period=? AND kind=? AND state!='duplicado'",(r['purchase_date'],r['amount'],r['period'],r['kind']))
-                     if solapamientos.similar_name(m['normalized_description'],r['normalized_description'])]
+                     if solapamientos.similar_name(m['normalized_description'],r['normalized_description'],threshold=.7)]
             mid=insert(db,'movements',dict(batch_id=batch,source_key=f'banco:{fingerprint}:{sheet}:{row}',**r))
             if r['kind']!='pago_tarjeta':
                 import repartos
@@ -291,7 +291,7 @@ def import_bank(db,dbpath,path,month=None):
             if len(choices)>1 or any(s in r['normalized_description'] for s in ('shell','copec')):
                 issue(db,mid,'categoria_variable','Comercio con categorias variables: confirmar sugerencia')
             for match in matches:
-                insert(db,'candidates',dict(movement_id=mid,other_id=match['id'],reason='Misma fecha, importe, tipo y periodo; descripcion igual o similar (90%); puede ser otra compra real'))
+                insert(db,'candidates',dict(movement_id=mid,other_id=match['id'],reason='Misma fecha, importe, tipo y periodo; similitud textual de al menos 70%; requiere revision manual'))
             if matches:issue(db,mid,'posible_duplicado','Revisar coincidencias; no se elimina ningun movimiento')
     return dict(lote=batch,reutilizado=False,movimientos=len(data),reconocidos=len(recognized),nuevos=len(data)-len(recognized))
 

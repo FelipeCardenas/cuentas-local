@@ -137,6 +137,20 @@ button svg {
 .cut-metrics {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
+.metrics.ledger-metrics > div {
+  padding: 0 16px;
+  border-top: 0;
+  display: grid;
+  grid-template-rows: minmax(34px, auto) auto minmax(32px, auto);
+  align-content: start;
+}
+.metrics.ledger-metrics > div > span {
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}
+.metrics.ledger-metrics strong { margin-top: 0; }
+.movement-actions > div { display: flex; gap: 4px; justify-content: flex-end; min-width: 116px; }
+.cut-snapshots { scrollbar-gutter: stable; padding-right: 12px; }
 .sidebar-bottom {
   overflow-wrap: anywhere;
 }

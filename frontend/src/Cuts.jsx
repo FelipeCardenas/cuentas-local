@@ -7,8 +7,9 @@ import {
   RefreshCw,
   Pencil,
   Check,
+  Download,
 } from "lucide-react";
-import { api, post } from "./api";
+import { api, post, download } from "./api";
 import { money, date, month, batchLabel, units } from "./domain";
 import Allocations from "./Allocations";
 import {
@@ -411,8 +412,17 @@ export default function Cuts({ config, revision, onChanged, onReview }) {
         <Modal
           id="cutDetail"
           title={`Corte #${detail.cut.id}${detail.cut.cancelled_at ? " · Anulado" : ""}`}
+          busy={busy}
           onClose={() => setDetail(null)}
         >
+          <button className="secondary" disabled={busy} onClick={async () => {
+            setBusy(true);
+            setError("");
+            try { await download({}, `/api/export-cut?id=${detail.cut.id}`); }
+            catch (e) { setError(e.message); }
+            finally { setBusy(false); }
+          }}><Download />Descargar detalle en Excel</button>
+          <ErrorBox error={error} />
           <p>
             {date(detail.cut.start_date)} a {date(detail.cut.end_date)}
           </p>

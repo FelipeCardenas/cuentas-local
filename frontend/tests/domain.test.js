@@ -1,22 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { units, decimal, split, average, projection } from "../src/domain.js";
-test("six-decimal allocations preserve the exact amount, including refunds", () => {
+import { units, decimal, split, equalShares, average, projection } from "../src/domain.js";
+test("whole-peso splits preserve the exact amount, including refunds", () => {
   for (const amount of [
     "8897",
     "-8897",
-    "0.000001",
-    "-0.000001",
-    "1000000000.123456",
+    "0",
+    "1000000000",
   ]) {
     for (const p of [0, 33.33, 50, 99.99, 100]) {
       const [a, b] = split(amount, p);
       assert.equal(units(a) + units(b), units(amount));
+      assert.match(a, /^-?\d+$/);
     }
     assert.equal(units(decimal(units(amount))), units(amount));
   }
-  assert.deepEqual(split("-10", 50), ["-5.000000", "-5.000000"]);
-  assert.deepEqual(split("8897", 50), ["4448.500000", "4448.500000"]);
+  assert.deepEqual(split("-10", 50), ["-5", "-5"]);
+  assert.deepEqual(split("8897", 50), ["4449", "4448"]);
+  assert.deepEqual(split("-8897", 50), ["-4449", "-4448"]);
+  assert.deepEqual(equalShares("10", 3), ["4", "3", "3"]);
+  assert.deepEqual(equalShares("-10", 3), ["-4", "-3", "-3"]);
+  assert.throws(() => split("0.5", 50));
+  assert.throws(() => equalShares("0.5", 2));
+  assert.equal(units(decimal(units("0.123456"))), units("0.123456"));
   assert.throws(() => units("1e6"));
   assert.throws(() => units("1.1234567"));
 });

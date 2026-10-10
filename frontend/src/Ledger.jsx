@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Search, Download, CheckCheck, ChevronRight } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Search, Download, CheckCheck, ChevronRight, Check, ArchiveX } from "lucide-react";
 import {
   useQuery,
   Status,
@@ -28,6 +28,20 @@ export default function Ledger({
     [bulk, setBulk] = useState(null),
     [busy, setBusy] = useState(false);
   const key = JSON.stringify(filters);
+  const rowLock = useRef(false);
+  async function quickReview(r, action) {
+    if (busy || rowLock.current) return;
+    if (action === "descartar" && !window.confirm(`¿Rechazar el movimiento #${r.id}? Podrás recuperarlo en Descartados.`)) return;
+    rowLock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await post("/api/review", { id: r.id, version: r.version, action,
+        ...(action === "aceptar" ? { allocations: r.allocations } : {}) });
+      await onChanged(action === "aceptar" ? "Movimiento confirmado" : "Movimiento descartado");
+    } catch (e) { setError(e.message); }
+    finally { rowLock.current = false; setBusy(false); }
+  }
   useEffect(() => {
     setPage(1);
   }, [key]);
@@ -333,12 +347,19 @@ export default function Ledger({
                     <td>
                       <Badge row={r} />
                     </td>
-                    <td>
+                    <td className="movement-actions">
+                      <div>
+                      {r.state === "pendiente" && r.kind !== "pago_tarjeta" && <>
+                        <IconButton icon={Check} title={`Confirmar movimiento ${r.id}`} disabled={busy || !r.category || !!r.issue_count} onClick={() => quickReview(r, "aceptar")} />
+                        <IconButton icon={ArchiveX} title={`Rechazar movimiento ${r.id}`} disabled={busy} onClick={() => quickReview(r, "descartar")} />
+                      </>}
                       <IconButton
                         icon={ChevronRight}
                         title={`Revisar movimiento ${r.id}`}
+                        disabled={busy}
                         onClick={() => onReview(r.id)}
                       />
+                      </div>
                     </td>
                   </tr>
                 ))}

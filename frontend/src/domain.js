@@ -102,9 +102,18 @@ export function split(amount, percent) {
   const p = Number(percent);
   if (!Number.isFinite(p) || p < 0 || p > 100)
     throw new Error("Porcentaje entre 0 y 100.");
-  const total = units(amount),
-    numerator = total * BigInt(Math.round(p * 100));
-  const rounded = numerator + 5000n;
-  const share = rounded >= 0n ? rounded / 10000n : (rounded - 9999n) / 10000n;
-  return [decimal(share), decimal(total - share)];
+  const total = units(amount);
+  if (total % 1000000n !== 0n)
+    throw new Error("El importe tiene fracciones de peso; conserva su reparto exacto o edítalo manualmente.");
+  const pesos = total / 1000000n;
+  const sign = pesos < 0n ? -1n : 1n;
+  const share = sign * (((pesos * sign) * BigInt(Math.round(p * 100)) + 5000n) / 10000n);
+  return [String(share), String(pesos - share)];
+}
+export function equalShares(amount, count) {
+  const total = units(amount);
+  if (!Number.isInteger(count) || count < 1) throw new Error("Faltan integrantes.");
+  if (total % 1000000n !== 0n) throw new Error("El importe tiene fracciones de peso; conserva su reparto exacto o edítalo manualmente.");
+  const pesos = total / 1000000n, n = BigInt(count), part = pesos / n, rest = pesos % n;
+  return Array.from({ length: count }, (_, i) => String(part + (BigInt(i) < (rest < 0n ? -rest : rest) ? (rest < 0n ? -1n : 1n) : 0n)));
 }

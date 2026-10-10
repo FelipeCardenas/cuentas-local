@@ -10,7 +10,7 @@ import {
   useGuard,
 } from "./ui";
 import { api, post } from "./api";
-import { money, date, month, kinds, split, units, decimal } from "./domain";
+import { money, date, month, kinds, split, units, equalShares } from "./domain";
 import Allocations from "./Allocations";
 
 export default function Review({ id, config, onClose, onChanged }) {
@@ -80,20 +80,10 @@ function ReviewForm({ initial, config, onClose, onChanged }) {
     const active = members.filter((p) => p.active);
     if (!active.length) return;
     try {
-      const total = units(r.amount),
-        n = BigInt(active.length),
-        part = total / n,
-        rest = total - part * n;
+      const shares = equalShares(r.amount, active.length);
       const values = Object.fromEntries(members.map((p) => [p.id, "0"]));
       active.forEach((p, i) => {
-        values[p.id] = decimal(
-          part +
-            (BigInt(i) < (rest < 0n ? -rest : rest)
-              ? rest < 0n
-                ? -1n
-                : 1n
-              : 0n),
-        );
+        values[p.id] = shares[i];
       });
       set("allocations", values);
     } catch (e) {

@@ -11,14 +11,14 @@ def signature(r):
                                'period','kind','installment'))+(str(r['holder'] or '').strip().casefold(),)
 
 
-def similar_name(a, b):
+def similar_name(a, b, threshold=.9):
     def clean(value):
         return re.sub(r'^compra\s+', '', g.norm(value)).strip()
     a, b = clean(a), clean(b)
     # Short generic labels are not sufficient evidence for automatic matching.
     return a == b or (min(len(a),len(b)) >= 10 and
                      min(SequenceMatcher(None,a,b,autojunk=False).ratio(),
-                         SequenceMatcher(None,b,a,autojunk=False).ratio()) >= .9)
+                         SequenceMatcher(None,b,a,autojunk=False).ratio()) >= threshold)
 
 
 def compatible(a, b):

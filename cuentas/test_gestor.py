@@ -118,6 +118,30 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(result['reconocidos'],0)
         self.assertGreater(self.db.execute('SELECT count(*) FROM candidates').fetchone()[0],0)
 
+    def test_tricot_warns_but_never_auto_merges(self):
+        self.load('old.xlsx',[item('COMPRA TRICOT EL BELLOTO*')])
+        g.review(self.db,1,'aceptar',category='Retail')
+        before=dict(self.db.execute('SELECT * FROM movements WHERE id=1').fetchone())
+        result=self.load('new.xlsx',[item('COMPRA TRICOT P EL BELLOTO MALL')])
+        self.assertEqual((result['reconocidos'],result['nuevos']),(0,1))
+        self.assertEqual(dict(self.db.execute('SELECT * FROM movements WHERE id=1').fetchone()),before)
+        self.assertEqual(self.db.execute('SELECT other_id FROM candidates WHERE movement_id=2').fetchone()[0],1)
+        self.assertEqual(self.db.execute('SELECT state FROM movements WHERE id=2').fetchone()[0],'pendiente')
+        different=item('COMPRA TRICOT P EL BELLOTO MALL',amount=2000)
+        self.load('other.xlsx',[different])
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM candidates WHERE movement_id=3').fetchone()[0],0)
+
+    def test_manual_similarity_threshold_is_seventy_percent(self):
+        import solapamientos
+        self.assertTrue(solapamientos.similar_name('abcdefghij','abcdefgxyz',threshold=.7))
+        self.assertFalse(solapamientos.similar_name('abcdefghij','abcdefwxyz',threshold=.7))
+        self.assertFalse(solapamientos.similar_name('abcdefghij','abcdefgxyz'))
+        self.load('old.xlsx',[item('COMPRA abcdefghij')])
+        self.load('below.xlsx',[item('COMPRA abcdxxghxx')])
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM candidates').fetchone()[0],0)
+        self.load('boundary.xlsx',[item('COMPRA abcdefgxyz')])
+        self.assertIsNotNone(self.db.execute('SELECT 1 FROM candidates WHERE movement_id=3 AND other_id=1').fetchone())
+
     def test_exact_purchase_cannot_also_match_similar_purchase(self):
         a=item('COMPRA SUPERMERCADO DE EJEMPLO')
         self.load('old.xlsx',[a])

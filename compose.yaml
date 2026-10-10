@@ -2,11 +2,13 @@ name: cuentas-docker-prueba
 
 services:
   cuentas:
+    image: cuentas-local:dev
     build:
       context: .
       dockerfile: Dockerfile
+    command: ["python", "servidor.py", "--host", "0.0.0.0", "--port", "8768", "--db", "/data/cuentas.sqlite3"]
     ports:
-      - "127.0.0.1:8767:8767"
+      - "127.0.0.1:8768:8768"
     volumes:
       - datos-prueba:/data
     init: true
