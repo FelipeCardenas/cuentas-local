@@ -6,6 +6,13 @@ export const money = (n) =>
         currency: "CLP",
         maximumFractionDigits: 2,
       }).format(Number(n));
+export function selectedCategoryTotals(rows) {
+  const totals = Array.from({ length: 12 }, (_, i) => {
+    const values = rows.map((r) => r.months[i]).filter((v) => v !== null);
+    return values.length ? decimal(values.reduce((sum, v) => sum + units(v), 0n)) : null;
+  });
+  return { months: totals, total: decimal(totals.reduce((sum, v) => sum + units(v ?? 0), 0n)) };
+}
 export const date = (s) =>
   s
     ? new Date(s + "T12:00:00").toLocaleDateString("es-CL", {

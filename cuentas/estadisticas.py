@@ -7,6 +7,51 @@ import gestor as g
 import repartos
 
 
+def categories(db, query):
+    basis = query.get('basis', 'period')
+    if basis not in ('period', 'purchase_date'):
+        raise ValueError('Base de fechas invalida.')
+    expression = 'period' if basis == 'period' else 'substr(purchase_date,1,7)'
+    years = [r[0] for r in db.execute(f"""SELECT DISTINCT substr({expression},1,4)
+        FROM movements WHERE state='aceptado' AND kind IN ('gasto','devolucion')
+        AND {expression} GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]' ORDER BY 1 DESC""")]
+    year = query.get('year') or (years[0] if years else str(date.today().year))
+    if not re.fullmatch(r'[0-9]{4}', year):
+        raise ValueError('Anio invalido.')
+    members = repartos.people(db)
+    person = query.get('person', 'total')
+    if person not in ['total'] + ([p['id'] for p in members] if members else ['mi', 'amor']):
+        raise ValueError('Seleccione una persona del hogar.')
+    if person == 'total':
+        amount, params = 'm.amount', []
+    elif not members:
+        amount, params = f'm.{person}', []
+    else:
+        amount, params = '(SELECT a.amount FROM allocations a WHERE a.movement_id=m.id AND a.person_id=?)', [person]
+    rows = db.execute(f"""SELECT COALESCE(NULLIF(category,''),'Sin categoria') category,
+        {expression} period, kind, {amount} amount FROM movements m
+        WHERE state='aceptado' AND kind IN ('gasto','devolucion')
+        AND {expression} BETWEEN ? AND ?""", (*params, f'{year}-01', f'{year}-12'))
+    grouped, totals = {}, [None] * 12
+    purchases, counts = [0] * 12, [0] * 12
+    for row in rows:
+        if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', row['period'] or ''):
+            continue
+        index = int(row['period'][5:]) - 1
+        values = grouped.setdefault(row['category'], [None] * 12)
+        value = row['amount'] or 0
+        values[index] = (values[index] or 0) + value
+        totals[index] = (totals[index] or 0) + value
+        if row['kind'] == 'gasto':
+            purchases[index] += value
+            counts[index] += int(person == 'total' or value != 0)
+    public = lambda values: [g.decimal(v) if v is not None else None for v in values]
+    return dict(year=year, years=years, people=members, basis=basis, person=person,
+                rows=[dict(name=name, months=public(values), total=g.decimal(sum(v or 0 for v in values)))
+                      for name, values in sorted(grouped.items())], totals=public(totals),
+                purchases=public(purchases), counts=counts)
+
+
 def weekly(db):
     members = repartos.people(db)
     keys = ['total', 'mi', 'amor'] + [p['id'] for p in members]

@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { units, decimal, split, equalShares, average, projection } from "../src/domain.js";
+import { units, decimal, split, equalShares, average, projection, selectedCategoryTotals } from "../src/domain.js";
+test("category selection totals retain exact fractions, refunds and missing months", () => {
+  const row = (values) => ({ months: [...values, ...Array(12 - values.length).fill(null)] });
+  const a = row(["0.1", "-20"]), b = row(["0.2", "5"]);
+  assert.deepEqual(selectedCategoryTotals([a, b]).months.slice(0, 3), ["0.300000", "-15.000000", null]);
+  assert.equal(selectedCategoryTotals([a, b]).total, "-14.700000");
+  assert.equal(selectedCategoryTotals([a]).total, "-19.900000");
+  assert.equal(selectedCategoryTotals([]).total, "0.000000");
+  assert.deepEqual(selectedCategoryTotals([]).months, Array(12).fill(null));
+  assert.equal(a.months[0], "0.1");
+});
 test("whole-peso splits preserve the exact amount, including refunds", () => {
   for (const amount of [
     "8897",

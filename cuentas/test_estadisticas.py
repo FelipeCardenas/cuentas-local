@@ -2,7 +2,7 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from estadisticas import monthly, weekly
+from estadisticas import monthly, weekly, categories
 
 
 class StatisticsTests(unittest.TestCase):
@@ -100,6 +100,63 @@ class WeeklyStatisticsTests(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(weekly(self.db),dict(years={},people=[]))
+
+
+class CategoryStatisticsTests(unittest.TestCase):
+    def setUp(self):
+        WeeklyStatisticsTests.setUp(self)
+        self.db.execute('ALTER TABLE movements ADD COLUMN category TEXT')
+
+    def tearDown(self):
+        self.db.close()
+
+    def add(self, category, period, amount, **kwargs):
+        mid = WeeklyStatisticsTests.add(self, '2026-10-01', amount, **kwargs)
+        self.db.execute('UPDATE movements SET period=?,category=? WHERE id=?',(period,category,mid))
+        return mid
+
+    def test_matrix_totals_refunds_and_missing_months(self):
+        self.add('Supermercado','2026-01',100)
+        self.add('Supermercado','2026-01',-20,kind='devolucion')
+        self.add('Supermercado','2026-02',30)
+        self.add('Transporte','2026-02',5)
+        self.add(None,'2026-01',7)
+        for state in ('pendiente','duplicado','excluido_gasto'):
+            self.add('Supermercado','2026-01',999,state=state)
+        self.add('Supermercado','2026-01',999,kind='pago_tarjeta')
+        self.add('Supermercado','2026-01',999,kind='ingreso')
+        data = categories(self.db,dict(year='2026'))
+        rows = {r['name']:r for r in data['rows']}
+        self.assertEqual(rows['Supermercado']['months'][:3],['80','30',None])
+        self.assertEqual(rows['Supermercado']['total'],'110')
+        self.assertEqual(data['totals'][:3],['87','35',None])
+        self.assertEqual(data['counts'][:2],[2,2])
+        self.assertEqual(data['purchases'][:2],['107','35'])
+
+    def test_basis_year_and_legacy_allocation(self):
+        self.add('Retail','2025-02',100)
+        self.assertEqual(categories(self.db,dict(basis='period'))['year'],'2025')
+        data = categories(self.db,dict(basis='purchase_date',person='mi'))
+        self.assertEqual(data['year'],'2026')
+        self.assertEqual(data['totals'][9],'25')
+        self.assertEqual(categories(self.db,dict(year='2024'))['rows'],[])
+
+    def test_members_and_fractional_allocations(self):
+        mid = self.add('Retail','2026-10',100)
+        self.db.execute('CREATE TABLE allocations(movement_id INTEGER,person_id TEXT,amount INTEGER)')
+        self.db.executemany('INSERT INTO allocations VALUES (?,?,?)',[(mid,'a',33500000),(mid,'b',66500000)])
+        with patch('estadisticas.repartos.people',return_value=[dict(id='a'),dict(id='b')]):
+            data = categories(self.db,dict(year='2026',person='a'))
+            self.assertEqual(data['totals'][9],'33.5')
+            self.assertEqual(data['counts'][9],1)
+            with self.assertRaises(ValueError):categories(self.db,dict(person='outside-household'))
+
+    def test_invalid_filters_and_empty(self):
+        for query in (dict(year='2026 OR 1=1'),dict(basis='bad'),dict(person='other')):
+            with self.assertRaises(ValueError):categories(self.db,query)
+        data = categories(self.db,dict(year='2026'))
+        self.assertEqual(data['rows'],[])
+        self.assertEqual(data['totals'],[None]*12)
 
 
 if __name__ == '__main__':
