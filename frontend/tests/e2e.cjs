@@ -72,6 +72,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     page.getByRole("heading", { name: "Revisión de gastos", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".pagination")).toContainText("40 movimientos");
+  await page.screenshot({path: path.join(screenshots, "ledger-actions-desktop.png"), fullPage: true});
+  const metricTops = await page.locator('.ledger-metrics > div').evaluateAll(nodes => nodes.map(n => ({row:n.getBoundingClientRect().top, value:n.querySelector('strong').getBoundingClientRect().top})));
+  for (const a of metricTops) for (const b of metricTops) if (Math.abs(a.row-b.row)<1) expect(Math.abs(a.value-b.value)).toBeLessThan(1);
   await page
     .getByRole("button", { name: "Página siguiente", exact: true })
     .click();
@@ -84,21 +87,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await expect(page.getByLabel("Ana · CLP", { exact: true })).toHaveValue(
     "4448.5",
   );
+  await page.getByLabel("Ana · %", { exact: true }).fill("40");
+  await page.getByLabel("Ana · %", { exact: true }).fill("50");
+  await expect(page.getByLabel("Ana · CLP", { exact: true })).toHaveValue("4449");
+  await expect(page.getByLabel("Amor · CLP", { exact: true })).toHaveValue("4448");
   await page.getByLabel("Ana · CLP", { exact: true }).fill("10");
   await page.getByLabel("Amor · CLP", { exact: true }).fill("8887");
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(
     page.getByText("Revisiones guardadas", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+  await page.locator('#drawer').getByRole("button", { name: "Cerrar", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar movimiento 22", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirmar movimiento 22", exact: true })).toHaveCount(0);
   await expect(page.locator("#drawer")).toHaveCount(0);
   // Discard and restore without changing allocations.
   await page.getByPlaceholder("Buscar movimiento").fill("Pendiente ejemplo 01");
   await page
-    .getByRole("button", { name: "Revisar movimiento 23", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "No considerar", exact: true })
+    .getByRole("button", { name: "Rechazar movimiento 23", exact: true })
     .click();
   await expect(page.locator("#drawer")).toHaveCount(0);
   await page.getByRole("tab", { name: "Descartados", exact: true }).click();
@@ -263,6 +269,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await expect(page.locator("#cutDetail")).toContainText(
     "Corte ficticio de prueba",
   );
+  const cutDownload = page.waitForEvent('download');
+  await page.getByRole('button', {name:'Descargar detalle en Excel', exact:true}).click();
+  const cutFile = await cutDownload;
+  expect(cutFile.suggestedFilename()).toBe('corte_1.xlsx');
+  await cutFile.saveAs(path.join(folder,'cut.xlsx'));
+  const checkCut = spawnSync(python, ['-c', "from openpyxl import load_workbook; import sys; w=load_workbook(sys.argv[1]); assert w['Detalle'].max_row==49; assert w['Corte']['B6'].value=='Corte ficticio de prueba'; w.close()", path.join(folder,'cut.xlsx')], {encoding:'utf8'});
+  if (checkCut.status) throw Error(checkCut.stderr);
+  await page.screenshot({path:path.join(screenshots,'cut-export-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByRole('button', {name:'Descargar detalle en Excel',exact:true})).toBeVisible();
+  await page.screenshot({path:path.join(screenshots,'cut-export-mobile.png'),fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
   await page
     .locator("#cutDetail")
     .getByRole("button", { name: "Cerrar", exact: true })

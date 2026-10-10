@@ -9,6 +9,49 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 import revision_masiva as bulk
 import repartos
+import cortes
+
+
+def cut_excel(db, cid):
+    data=cortes.detail(db,cid)
+    cut=data['cut']; rows=data['rows']
+    names={}
+    for row in rows:
+        for pid in row.get('allocations',{}):
+            names.setdefault(pid,row.get('people',{}).get(pid,pid))
+    wb=Workbook(); summary=wb.active; summary.title='Corte'
+    for record in [('Corte',cid),('Desde',cut['start_date']),('Hasta',cut['end_date']),
+                   ('Validado',cut['created_at']),('Estado','Anulado' if cut['cancelled_at'] else 'Vigente'),
+                   ('Nota',cut['note']),('Movimientos',len(rows))]:
+        summary.append(record)
+    summary.append(['Persona','Total CLP'])
+    totals=data['allocations'] if names else {'Mi':data['mi'],'Amor':data['amor']}
+    for pid, amount in totals.items():summary.append([names.get(pid,pid),Decimal(amount)/1_000_000])
+    ws=wb.create_sheet('Detalle')
+    headers=['ID','Fecha compra','Periodo','Descripcion','Categoria al validar','Ajuste','Total del corte CLP']
+    headers += [f'{name} [{pid}] CLP' for pid,name in names.items()] if names else ['Mi CLP','Amor CLP']
+    ws.append(headers)
+    for row in rows:
+        allocated=row.get('allocations',{})
+        amounts=[allocated.get(pid,0) or 0 for pid in names] if names else [row['mi'],row['amor']]
+        ws.append([row['id'],date.fromisoformat(row['purchase_date']),row['period'],row['description'],
+                   row['category'] or '',bool(row.get('adjustment')),Decimal(sum(amounts))/1_000_000]+
+                  [Decimal(n)/1_000_000 for n in amounts])
+    for sheet in wb:
+        sheet.freeze_panes='A2'; sheet.sheet_view.showGridLines=False
+        for cells in sheet:
+            for cell in cells:
+                if isinstance(cell.value,str):cell.data_type='s'
+                elif isinstance(cell.value,date):cell.number_format='dd-mm-yyyy'
+                elif isinstance(cell.value,Decimal):cell.number_format='#,##0.######;[Red]-#,##0.######'
+        for cell in sheet[1]:
+            cell.font=Font(bold=True,color='FFFFFF');cell.fill=PatternFill('solid',fgColor='126B57')
+        for i in range(1,sheet.max_column+1):sheet.column_dimensions[get_column_letter(i)].width=24
+    summary.column_dimensions['B'].width=65
+    summary['B6'].alignment=Alignment(wrap_text=True)
+    ws.column_dimensions['D'].width=55;ws.auto_filter.ref=ws.dimensions
+    output=BytesIO();wb.save(output);wb.close()
+    return output.getvalue()
 
 
 def records(db, filters):

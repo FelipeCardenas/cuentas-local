@@ -50,10 +50,12 @@ def version(row):
 
 
 def movement(row,db=None):
-    d=dict(row);d['version']=version(row)
+    d=dict(row)
+    source={k:v for k,v in d.items() if k!='issue_count'}
+    d['version']=version(source)
     if db is not None and repartos.people(db):
         values=repartos.get(db,d['id'])
-        d['version']=version(dict(row,allocations=values))
+        d['version']=version(dict(source,allocations=values))
         d['allocations']=repartos.public(values)
     for k in ('amount','purchase_amount','mi','amor'):
         if k in d:d[k]=g.decimal(d[k])
@@ -127,6 +129,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(estadisticas.explanation(db,q))
                 if url.path=='/api/cuts':
                     return self.send(dict(defaults=cortes.defaults(db),history=[cortes.public(r) for r in cortes.history(db)]))
+                if url.path=='/api/export-cut':
+                    cid=int(q.get('id','0'))
+                    return self.send(exportacion.cut_excel(db,cid),mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',download=f'corte_{cid}.xlsx')
                 if url.path.startswith('/api/cuts/'):
                     return self.send(cortes.public(cortes.detail(db,int(url.path.rsplit('/',1)[1]))))
                 if url.path=='/api/movements':

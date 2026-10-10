@@ -24,9 +24,9 @@ export const post = (path, data) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-export async function download(filters) {
+export async function download(filters, path = "/api/export-filtered?" + new URLSearchParams(filters)) {
   const response = await fetch(
-    scoped("/api/export-filtered?" + new URLSearchParams(filters)),
+    scoped(path),
   );
   if (!response.ok)
     throw new Error((await response.json()).error || "No se pudo descargar");

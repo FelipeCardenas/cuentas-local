@@ -6,6 +6,10 @@ y consultar estadisticas. Backend Python, frontend React y SQLite.
 
 ## Instalacion
 
+Para produccion local con Docker y acceso directo en Windows, ver
+[DOCKER.md](DOCKER.md). El lanzador `cuentas/Abrir Cuentas Produccion.cmd`
+usa el volumen real, no las bases del inicio directo con Python.
+
 Requiere Python 3.12 (version probada), Node.js 22.12 o superior y npm.
 Desde la raiz del proyecto:
 
@@ -36,6 +40,22 @@ Ver [frontend/README.md](frontend/README.md) para desarrollo y pruebas de navega
 
 ## Pruebas
 
+En Revision, cada fila pendiente permite confirmar (sin avisos pendientes) o
+rechazar conservando el historial en Descartados. Los casos con avisos se revisan
+desde el detalle. Los cortes guardados permiten descargar su detalle en Excel;
+se exportan los repartos y categorias historicos, incluidos ajustes y anulaciones.
+
+Los calculos nuevos por porcentaje o partes iguales usan pesos enteros y
+conservan la suma exacta. En porcentajes, el importe de la persona editada se
+redondea al peso mas cercano (mitades alejandose de cero); la otra recibe el
+resto. En partes iguales, los pesos sobrantes se asignan en el orden de integrantes.
+Los repartos historicos no se redondean al abrirlos ni al exportarlos.
+
+El reconocimiento automatico conserva el umbral textual del 90%. En nuevas
+importaciones, las advertencias manuales usan 70%, ademas de la misma fecha,
+importe, tipo y periodo. Esto no fusiona ni descarta movimientos y no modifica
+retroactivamente las importaciones anteriores.
+
 ```sh
 python -m unittest discover -s cuentas
 npm --prefix frontend test
@@ -48,11 +68,12 @@ Las pruebas generan datos ficticios y bases temporales.
 - Uso local: no exponer el servidor a Internet ni a una red compartida.
 - Registro local con correo y contrasena (minimo 12 caracteres). No se envia
   correo de verificacion ni hay recuperacion de contrasenas por correo.
-- Los datos se almacenan en cuentas/datos/ y no se versionan.
+- En ejecucion directa los datos se almacenan en cuentas/datos/; con Docker,
+  en el volumen del entorno elegido. No se versionan.
 - GitHub respalda el codigo, no la BD, los Excel ni los cortes personales.
 - Mantener respaldos independientes de la BD y los originales importados.
 - Solo CLP; reparto exacto por persona, con hasta seis decimales.
-- Docker, PostgreSQL y despliegue en internet siguen pendientes.
+- Docker local esta disponible. PostgreSQL y despliegue en internet siguen pendientes.
 
 ## Personas, cuentas y hogares
 
