@@ -40,6 +40,11 @@ Ver [frontend/README.md](frontend/README.md) para desarrollo y pruebas de navega
 
 ## Pruebas
 
+Estadisticas incluye gasto semanal por anio, mes y persona, agrupado por fecha
+de compra en semanas de lunes a domingo limitadas al mes seleccionado. Suma
+solo gastos y devoluciones confirmados; mantiene los repartos historicos.
+La comparativa mensual existente sigue usando el periodo asignado.
+
 En Revision, cada fila pendiente permite confirmar (sin avisos pendientes) o
 rechazar conservando el historial en Descartados. Los casos con avisos se revisan
 desde el detalle. Los cortes guardados permiten descargar su detalle en Excel;

@@ -171,7 +171,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     page.getByRole("heading", { name: "Tendencia mensual" }),
   ).toBeVisible();
   await page.getByLabel("Mes", { exact: true }).selectOption("09");
-  await expect(page.locator("canvas")).toHaveCount(3);
+  await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
+  await expect(page.locator("#weeklyStatistics tfoot")).toContainText("12.000");
+  await expect(page.locator("#weeklyStatistics tbody tr")).toHaveCount(5);
+  await page.getByLabel("Mes semanal", { exact: true }).selectOption("12");
+  await expect(page.locator("#weeklyStatistics")).toContainText("Sin gastos confirmados en este mes.");
+  await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
+  await expect(page.locator("canvas")).toHaveCount(4);
   await page.screenshot({
     path: path.join(screenshots, "statistics-desktop.png"),
     fullPage: true,
@@ -414,6 +420,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     "movements",
     "detail/1",
     "statistics",
+    "statistics-weekly",
     "cuts",
     "export",
     "export-filtered",

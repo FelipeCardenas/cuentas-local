@@ -63,6 +63,7 @@ export default function Statistics({ revision }) {
   const query = useQuery("/api/statistics", revision);
   return (
     <section id="statsPanel">
+      <WeeklyStatistics revision={revision} />
       <Status {...query} />
       {query.data &&
         (Object.keys(query.data.years).length ? (
@@ -75,6 +76,51 @@ export default function Statistics({ revision }) {
             <h2>Sin gastos confirmados</h2>
           </div>
         ))}
+    </section>
+  );
+}
+function WeeklyStatistics({ revision }) {
+  const query = useQuery("/api/statistics-weekly", revision);
+  const [selectedYear, setYear] = useState(""),
+    [selectedMonth, setMonth] = useState(""),
+    [person, setPerson] = useState("total");
+  const years = query.data?.years || {};
+  const options = Object.keys(years).sort().reverse();
+  const year = years[selectedYear] ? selectedYear : options[0] || "";
+  const month = selectedMonth || Object.keys(years[year] || {}).sort().at(-1) || "01";
+  const people = query.data?.people || [];
+  const activePerson = person === "total" || people.some((p) => p.id === person) ? person : "total";
+  const rows = years[year]?.[month] || [];
+  const range = (r) => `${r.start.slice(8)}/${month} – ${r.end.slice(8)}/${month}`;
+  const values = rows.map((r) => r[activePerson] ?? 0);
+  return (
+    <section className="stats-chart-section" id="weeklyStatistics">
+      <h2>Gasto semanal</h2>
+      <Status {...query} />
+      {query.data && !options.length && <p>Sin gastos confirmados.</p>}
+      {!!options.length && <>
+        <div className="filters stats-filters">
+          <Field label="Año semanal"><select value={year} onChange={(e) => { setYear(e.target.value); setMonth(""); }}>
+            {options.map((y) => <option key={y}>{y}</option>)}
+          </select></Field>
+          <Field label="Mes semanal"><select value={month} onChange={(e) => setMonth(e.target.value)}>
+            {months.map((name, i) => <option key={i} value={String(i + 1).padStart(2, "0")}>{name}</option>)}
+          </select></Field>
+          <Field label="Gasto semanal"><select value={activePerson} onChange={(e) => setPerson(e.target.value)}>
+            <option value="total">Total</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.active ? "" : " (retirado)"}</option>)}
+          </select></Field>
+        </div>
+        <p className="muted">Fecha de compra · lunes a domingo · solo días del mes · confirmados menos devoluciones · CLP</p>
+        {!rows.length ? <p>Sin gastos confirmados en este mes.</p> : <>
+          <Graph label="Gasto semanal del mes; valores en tabla" labels={rows.map(range)} datasets={[{label: people.find((p) => p.id === activePerson)?.name || "Total", data: values}]} />
+          <div className="table-wrap"><table>
+            <thead><tr><th>Semana</th><th>Fechas</th><th>Movimientos del hogar</th><th>Gasto neto CLP</th></tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={r.start}><td>Semana {i + 1}</td><td>{range(r)}</td><td>{r.count}</td><td className="numeric">{money(values[i])}</td></tr>)}</tbody>
+            <tfoot><tr><th colSpan={3}>Total {months[Number(month) - 1]} {year}</th><td className="numeric">{money(values.reduce((sum, v) => sum + v, 0))}</td></tr></tfoot>
+          </table></div>
+        </>}
+      </>}
     </section>
   );
 }

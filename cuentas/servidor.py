@@ -125,6 +125,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(categorias.catalog(db))
                 if url.path=='/api/statistics':
                     return self.send(estadisticas.monthly(db))
+                if url.path=='/api/statistics-weekly':
+                    return self.send(estadisticas.weekly(db))
                 if url.path=='/api/statistics-explanation':
                     return self.send(estadisticas.explanation(db,q))
                 if url.path=='/api/cuts':

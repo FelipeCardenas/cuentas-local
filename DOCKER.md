@@ -5,7 +5,7 @@
 | Entorno | Compose | Imagen | URL | Volumen |
 | --- | --- | --- | --- | --- |
 | Pruebas | compose.yaml | cuentas-local:dev | http://127.0.0.1:8768 | cuentas-docker-prueba_datos-prueba |
-| Produccion | compose.real.yaml | cuentas-local:prod-20261009-1 | http://127.0.0.1:8767 | cuentas-datos-reales-20261005 |
+| Produccion | compose.real.yaml | cuentas-local:prod-20261009-2 | http://127.0.0.1:8767 | cuentas-datos-reales-20261005 |
 
 La rama Git no selecciona el entorno. Produccion ejecuta una imagen previamente
 preparada, sin compilar el checkout. Cambiar a develop no cambia el contenedor.
@@ -25,11 +25,11 @@ docker image ls cuentas-local
 ```
 
 Este paso conserva la version anterior como `cuentas-local:prod-20261005`.
-La entrega actual usa `cuentas-local:prod-20261009-1`, que debe construirse
+La entrega actual usa `cuentas-local:prod-20261009-2`, que debe construirse
 desde main despues de fusionar el PR, antes de ejecutar el lanzador:
 
 ```powershell
-docker build -t cuentas-local:prod-20261009-1 .
+docker build -t cuentas-local:prod-20261009-2 .
 ```
 
 Si la etiqueta nueva ya existe, no sobrescribirla: verificar su origen primero.
