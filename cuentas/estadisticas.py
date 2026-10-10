@@ -1,8 +1,43 @@
 """Read-only monthly statistics over confirmed expenses."""
 import re
+import calendar
+from datetime import date
 
 import gestor as g
 import repartos
+
+
+def weekly(db):
+    members = repartos.people(db)
+    keys = ['total', 'mi', 'amor'] + [p['id'] for p in members]
+    years = {}
+    allocations = {}
+    if members:
+        for row in db.execute("""SELECT a.movement_id,a.person_id,a.amount FROM allocations a
+                JOIN movements m ON m.id=a.movement_id
+                WHERE m.state='aceptado' AND m.kind IN ('gasto','devolucion')"""):
+            allocations.setdefault(row['movement_id'], {})[row['person_id']] = row['amount']
+    for row in db.execute("""SELECT rowid AS id,purchase_date,amount,mi,amor FROM movements
+            WHERE state='aceptado' AND kind IN ('gasto','devolucion') ORDER BY purchase_date"""):
+        day = date.fromisoformat(row['purchase_date'])
+        year, month = str(day.year), f'{day.month:02}'
+        periods = years.setdefault(year, {})
+        if month not in periods:
+            periods[month] = [dict(start=days[0].isoformat(), end=days[-1].isoformat(),
+                                  count=0, **{key: 0 for key in keys})
+                             for week in calendar.Calendar().monthdatescalendar(day.year, day.month)
+                             if (days := [d for d in week if d.month == day.month])]
+        bucket = next(w for w in periods[month] if w['start'] <= day.isoformat() <= w['end'])
+        bucket['count'] += 1
+        for key in keys:
+            value = row['amount'] if key == 'total' else row[key] if key in ('mi', 'amor') else allocations.get(row['id'], {}).get(key, 0)
+            bucket[key] += value or 0
+    for periods in years.values():
+        for weeks in periods.values():
+            for bucket in weeks:
+                for key in keys:
+                    bucket[key] = float(g.decimal(bucket[key]))
+    return dict(years=years, people=members)
 
 
 def explanation(db, query):
