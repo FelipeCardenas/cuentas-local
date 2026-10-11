@@ -353,8 +353,6 @@ button svg {
 @media (min-width: 1650px) {
   .stats-annual-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
   .stats-annual-content > * { grid-column: 1 / -1; }
-  .stats-annual-content > .stats-comparison { grid-column: 1; }
-  .stats-annual-content > #explanationPanel { grid-column: 2; }
 }
 @media (max-width: 1250px) {
   .stats-overview { grid-template-columns: minmax(0, 1fr); }
@@ -392,3 +390,7 @@ button svg {
     font-size: 18px;
   }
 }
+.stats-chart-scroll { overflow-x: auto; max-width: 100%; }
+.stats-bar-detail { margin: 8px 0 16px; }
+.stats-bar-detail summary { cursor: pointer; color: var(--muted); }
+#statsPanel .stats-comparison .stats-canvas { height: 320px; }

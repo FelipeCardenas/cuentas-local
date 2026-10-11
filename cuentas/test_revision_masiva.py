@@ -63,5 +63,46 @@ class BulkTests(unittest.TestCase):
         with self.assertRaises(ValueError):bulk.confirm(self.db,{'q':'compra 1'},info['token'])
         self.assertEqual(self.db.execute('SELECT state FROM movements WHERE id=1').fetchone()[0],'excluido_gasto')
 
+    def test_discard_all_pages_uncategorized_and_restore(self):
+        with self.db:
+            self.db.execute("UPDATE movements SET category=NULL,mi=NULL,amor=NULL WHERE id=1")
+            self.db.execute("UPDATE movements SET state='aceptado' WHERE id=2")
+            self.db.execute("UPDATE movements SET state='duplicado',duplicate_of=2 WHERE id=3")
+            self.db.execute("UPDATE movements SET kind='pago_tarjeta',state='excluido_gasto' WHERE id=4")
+        filters={'batch':'1'}
+        info,_=bulk.plan(self.db,filters,'descartar')
+        self.assertEqual(info['eligible'],2997)
+        result=bulk.confirm(self.db,filters,info['token'],'descartar')
+        self.assertEqual(result['discarded'],2997)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM decisions WHERE action='descartar'").fetchone()[0],2997)
+        self.assertEqual(self.db.execute('SELECT state FROM movements WHERE id=2').fetchone()[0],'aceptado')
+        self.assertEqual(self.db.execute('SELECT state FROM movements WHERE id=3').fetchone()[0],'duplicado')
+        g.review(self.db,1,'restaurar')
+        row=self.db.execute('SELECT state,category,mi FROM movements WHERE id=1').fetchone()
+        self.assertEqual(tuple(row),('pendiente',None,None))
+
+    def test_discard_filters_stale_token_and_action_binding(self):
+        filters={'q':'compra 0','batch':'1','year':'2026','month':'09'}
+        info,_=bulk.plan(self.db,filters,'descartar')
+        self.assertEqual(info['eligible'],1)
+        with self.assertRaises(ValueError):bulk.confirm(self.db,{},info['token'],'descartar')
+        with self.assertRaises(ValueError):bulk.confirm(self.db,filters,info['token'],'aceptar')
+        g.review(self.db,1,'editar',category='Retail')
+        with self.assertRaises(ValueError):bulk.confirm(self.db,filters,info['token'],'descartar')
+        info,_=bulk.plan(self.db,filters,'descartar')
+        bulk.confirm(self.db,filters,info['token'],'descartar')
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM movements WHERE state='pendiente'").fetchone()[0],2999)
+
+    def test_discard_rollback_and_linked_copies(self):
+        info,_=bulk.plan(self.db,{},'descartar')
+        with self.db:self.db.execute('UPDATE movements SET duplicate_of=1 WHERE id=2')
+        with self.assertRaises(ValueError):bulk.confirm(self.db,{},info['token'],'descartar')
+        info,_=bulk.plan(self.db,{},'descartar')
+        self.assertEqual(info['skipped'][0]['id'],1)
+        self.db.execute("CREATE TRIGGER fail_discard BEFORE INSERT ON decisions WHEN NEW.movement_id=10 BEGIN SELECT RAISE(ABORT,'test'); END")
+        with self.assertRaises(Exception):bulk.confirm(self.db,{},info['token'],'descartar')
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM movements WHERE state='excluido_gasto'").fetchone()[0],0)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM decisions').fetchone()[0],0)
+
 
 if __name__=='__main__':unittest.main()

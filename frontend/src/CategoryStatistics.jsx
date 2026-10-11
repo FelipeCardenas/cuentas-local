@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCheck, ListFilter, Square, Table2 } from "lucide-react";
 import { Field, Status, useQuery } from "./ui";
 import { money, months, selectedCategoryTotals } from "./domain";
+import { categoryChartRows, expenseDatasets } from "./chartData";
 
 export default function CategoryStatistics({ revision, Graph }) {
   const [year, setYear] = useState(""), [person, setPerson] = useState("total"),
@@ -60,7 +61,9 @@ export default function CategoryStatistics({ revision, Graph }) {
     <Status {...query} />
     {data && (rows.length ? <>
       <div className="category-selection-total"><span>Total seleccionado · {data.year}</span><strong>{money(total.total)}</strong><small>{rows.length} categorías</small></div>
-      <Graph label="Totales mensuales de las categorías seleccionadas" datasets={[{ label: "Categorías seleccionadas", data: total.months.map((v) => v === null ? null : Number(v)) }]} />
+      <Graph label="Totales mensuales de las categorías seleccionadas" datasets={person === "total"
+        ? expenseDatasets(categoryChartRows(rows, data.people), data.people)
+        : expenseDatasets(total.months.map((v) => v === null ? null : {[person]: Number(v)}), data.people, person, data.people.find((p) => p.id === person)?.name || person)} />
       <div className="table-wrap category-pivot" tabIndex={0} role="region" aria-label="Gasto por categoría y mes">
         <table><thead><tr><th scope="col">Categoría</th>{months.map((m) => <th className="numeric" scope="col" key={m}>{m}</th>)}<th className="numeric" scope="col">Total anual</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r.name}><th scope="row">{r.name}</th>{r.months.map((v, i) => <td className="numeric" key={i}>{money(v)}</td>)}<td className="numeric category-row-total">{money(r.total)}</td></tr>)}</tbody>

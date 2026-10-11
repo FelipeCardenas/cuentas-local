@@ -4,7 +4,8 @@ import { CalendarDays, ChartNoAxesCombined } from "lucide-react";
 import CategoryStatistics from "./CategoryStatistics";
 import { useQuery, Status, Field, Metrics } from "./ui";
 import { money, pct, months, average, projection } from "./domain";
-const colors = ["#246d5c", "#597da0", "#d47716"];
+import { expenseDatasets, chartColors, barGroups } from "./chartData";
+import { barValueLabels } from "./chartLabels";
 function Graph({
   labels = months,
   datasets,
@@ -13,6 +14,9 @@ function Graph({
   label,
 }) {
   const ref = useRef();
+  const stacked = datasets.some((d) => d.stack);
+  const groups = Math.max(1, ...labels.map((_, index) => barGroups(datasets).filter((group) => group.some((i) => datasets[i].data[index] != null)).length));
+  const minWidth = type === "bar" ? (horizontal ? 460 : labels.length * groups * 34 + 70) : undefined;
   useEffect(() => {
     const chart = new Chart(ref.current, {
       type,
@@ -20,17 +24,20 @@ function Graph({
         labels,
         datasets: datasets.map((d, i) => ({
           ...d,
-          borderColor: d.color || colors[i % 3],
-          backgroundColor: d.color || colors[i % 3],
+          borderColor: d.color || chartColors[i % chartColors.length],
+          backgroundColor: d.color || chartColors[i % chartColors.length],
           borderWidth: 2,
           pointRadius: 3,
           spanGaps: false,
+          skipNull: true,
         })),
       },
+      plugins: [barValueLabels],
       options: {
         responsive: true,
         maintainAspectRatio: false,
         indexAxis: horizontal ? "y" : "x",
+        layout: { padding: type === "bar" ? (horizontal ? {left: 100, right: 100} : {top: 30, right: 55, bottom: 25}) : 0 },
         plugins: {
           legend: { display: true },
           tooltip: {
@@ -41,8 +48,11 @@ function Graph({
           },
         },
         scales: {
+          [horizontal ? "y" : "x"]: { stacked },
           [horizontal ? "x" : "y"]: {
+            stacked,
             beginAtZero: true,
+            grace: type === "bar" ? "35%" : 0,
             ticks: {
               callback: (v) =>
                 new Intl.NumberFormat("es-CL", { notation: "compact" }).format(
@@ -54,11 +64,20 @@ function Graph({
       },
     });
     return () => chart.destroy();
-  }, [labels, datasets, type, horizontal]);
+  }, [labels, datasets, type, horizontal, stacked]);
   return (
-    <div className={horizontal ? "explanation-canvas" : "stats-canvas"}>
+    <>
+    <div className="stats-chart-scroll" tabIndex={0} role="region" aria-label={label}>
+    <div className={horizontal ? "explanation-canvas" : "stats-canvas"} style={{minWidth}}>
       <canvas ref={ref} role="img" aria-label={label} />
     </div>
+    </div>
+    {stacked && <details className="stats-bar-detail"><summary>Detalle por integrante</summary>
+      <div className="table-wrap"><table><thead><tr><th>Período</th>{datasets.map((d, i) => <th className="numeric" key={i}>{d.label}</th>)}</tr></thead>
+        <tbody>{labels.map((name, i) => <tr key={i}><th>{name}</th>{datasets.map((d, j) => <td className="numeric" key={j}>{money(d.data[i])}</td>)}</tr>)}</tbody>
+      </table></div>
+    </details>}
+    </>
   );
 }
 export default function Statistics({ revision }) {
@@ -137,7 +156,7 @@ function WeeklyStatistics({ revision }) {
             ["Semana más cara", `Semana ${mostExpensive + 1}`, money(values[mostExpensive])],
           ]} />
           <h3>Gasto semanal</h3>
-          <Graph label="Gasto semanal del mes; valores en tabla" labels={rows.map(range)} datasets={[{label: people.find((p) => p.id === activePerson)?.name || "Total", data: values}]} />
+          <Graph label="Gasto semanal del mes; valores en tabla" labels={rows.map(range)} datasets={expenseDatasets(rows, people, activePerson, people.find((p) => p.id === activePerson)?.name || "Total")} />
           <h3>Detalle por semana</h3>
           <div className="table-wrap"><table>
             <thead><tr><th>Semana</th><th>Fechas</th><th>Movimientos del hogar</th><th>Gasto neto CLP</th></tr></thead>
@@ -248,9 +267,9 @@ function StatisticsContent({ years, people, revision }) {
         <Graph
           label="Comparativa mensual; valores en tabla"
           datasets={[
-            { label: year, data: a },
-            { label: compare || "Sin comparación", data: b },
-            { label: "Proyección", data: proj.forecast },
+            ...expenseDatasets(years[year] || Array(12).fill(null), people, person, year, "actual").map((d) => person === "total" ? d : {...d, color: "#246d5c"}),
+            ...(compare ? expenseDatasets(years[compare] || Array(12).fill(null), people, person, compare, "referencia").map((d) => person === "total" ? d : {...d, color: "#597da0"}) : []),
+            ...(projected ? [{ label: "Proyección", color: "#aa641e", ...(person === "total" ? {stack: "proyeccion"} : {}), data: proj.forecast }] : []),
           ]}
         />
       </section>
@@ -267,7 +286,7 @@ function StatisticsContent({ years, people, revision }) {
           datasets={[
             { label: "Gasto mensual", data: a },
             { label: "Media móvil de 3 meses", data: avg },
-            { label: "Proyección", data: trend, borderDash: [6, 4] },
+            { label: "Proyección", data: trend, color: "#aa641e", borderDash: [6, 4] },
           ]}
         />
       </section>

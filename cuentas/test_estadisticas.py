@@ -149,7 +149,30 @@ class CategoryStatisticsTests(unittest.TestCase):
             data = categories(self.db,dict(year='2026',person='a'))
             self.assertEqual(data['totals'][9],'33.5')
             self.assertEqual(data['counts'][9],1)
+            all_people = categories(self.db,dict(year='2026'))
+            parts = all_people['rows'][0]['people']
+            self.assertEqual(parts['a'][9],'33.5')
+            self.assertEqual(parts['b'][9],'66.5')
+            self.assertIsNone(parts['a'][0])
             with self.assertRaises(ValueError):categories(self.db,dict(person='outside-household'))
+
+    def test_category_breakdown_refunds_filters_and_missing_allocations(self):
+        purchase=self.add('Retail','2026-10',100)
+        refund=self.add('Retail','2026-10',-20,kind='devolucion')
+        excluded=self.add('Retail','2026-10',999,state='pendiente')
+        old=self.add('Retail','2025-10',999)
+        self.add('Sin reparto','2026-10',50)
+        self.db.execute('CREATE TABLE allocations(movement_id INTEGER,person_id TEXT,amount INTEGER)')
+        self.db.executemany('INSERT INTO allocations VALUES (?,?,?)',[
+            (purchase,'a',30000000),(purchase,'b',70000000),(refund,'b',-20000000),
+            (excluded,'a',999000000),(old,'a',999000000)])
+        with patch('estadisticas.repartos.people',return_value=[dict(id='a'),dict(id='b')]):
+            data=categories(self.db,dict(year='2026'))
+        rows={r['name']:r for r in data['rows']}
+        self.assertEqual(rows['Retail']['people']['a'][9],'30')
+        self.assertEqual(rows['Retail']['people']['b'][9],'50')
+        self.assertEqual(rows['Sin reparto']['people'],{})
+        self.assertEqual(data['totals'][9],'130')
 
     def test_invalid_filters_and_empty(self):
         for query in (dict(year='2026 OR 1=1'),dict(basis='bad'),dict(person='other')):

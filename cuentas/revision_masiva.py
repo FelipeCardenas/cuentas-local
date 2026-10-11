@@ -42,21 +42,30 @@ def where(filters, pending=False):
     return (' WHERE '+' AND '.join(clauses) if clauses else ''),values
 
 
-def plan(db,filters):
+def plan(db,filters,action='aceptar'):
+    if action not in ('aceptar','descartar'):raise ValueError('Accion masiva invalida')
     clause,args=where(filters,pending=True)
     rows=[dict(r) for r in db.execute('SELECT m.* FROM movements m'+clause+' ORDER BY id',args)]
     eligible=[];skipped=[]
+    protected=set()
+    if action=='descartar':
+        protected.update(r[0] for r in db.execute('SELECT duplicate_of FROM movements WHERE duplicate_of IS NOT NULL'))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='cut_items'").fetchone():
+            protected.update(r[0] for r in db.execute('SELECT i.movement_id FROM cut_items i JOIN cuts c ON c.id=i.cut_id WHERE c.cancelled_at IS NULL'))
     for r in rows:
         if repartos.people(db):r['allocations']=repartos.get(db,r['id'])
         reasons=[]
         if r['kind']=='pago_tarjeta':reasons.append('Pago de tarjeta')
-        if not (r['category'] or '').strip():reasons.append('Sin categoria')
-        if r['mi'] is None or r['amor'] is None:reasons.append('Reparto incompleto')
-        elif not r['special_case'] and r['mi']+r['amor']!=r['amount']:reasons.append('Reparto no coincide con monto')
+        if action=='descartar':
+            if r['id'] in protected:reasons.append('Tiene copias vinculadas o pertenece a un corte vigente')
+        else:
+            if not (r['category'] or '').strip():reasons.append('Sin categoria')
+            if r['mi'] is None or r['amor'] is None:reasons.append('Reparto incompleto')
+            elif not r['special_case'] and r['mi']+r['amor']!=r['amount']:reasons.append('Reparto no coincide con monto')
         if reasons:skipped.append({'id':r['id'],'reasons':reasons})
         else:eligible.append(r)
     expenses=[r for r in rows if r['kind'] in ('gasto','devolucion')]
-    return dict(token=hashlib.sha256(json.dumps(rows,sort_keys=True).encode()).hexdigest(),
+    return dict(token=hashlib.sha256(json.dumps([action,clause,args,rows,skipped],sort_keys=True).encode()).hexdigest(),
                 selected=len(rows),eligible=len(eligible),skipped=skipped,
                 mi=g.decimal(sum(r['mi'] or 0 for r in expenses)),
                 amor=g.decimal(sum(r['amor'] or 0 for r in expenses)),
@@ -65,19 +74,21 @@ def plan(db,filters):
                 unbalanced=sum(not r['special_case'] and r['mi'] is not None and r['amor'] is not None and r['mi']+r['amor']!=r['amount'] for r in expenses)),eligible
 
 
-def confirm(db,filters,token):
+def confirm(db,filters,token,action='aceptar'):
     # One transaction also protects against simultaneous CLI edits.
     db.execute('BEGIN IMMEDIATE')
     try:
-        info,rows=plan(db,filters)
+        info,rows=plan(db,filters,action)
         if info['token']!=token:raise ValueError('Los pendientes cambiaron. Vuelva a preparar la confirmacion.')
         stamp=g.now()
         for before in rows:
-            after={**before,'state':'aceptado','duplicate_of':None}
-            db.execute("UPDATE movements SET state='aceptado',duplicate_of=NULL WHERE id=?",(before['id'],))
+            after={**before,'state':'aceptado' if action=='aceptar' else 'excluido_gasto'}
+            if action=='aceptar':after['duplicate_of']=None
+            db.execute('UPDATE movements SET state=?,duplicate_of=? WHERE id=?',(after['state'],after['duplicate_of'],before['id']))
             db.execute('UPDATE issues SET resolved=1 WHERE movement_id=?',(before['id'],))
-            g.insert(db,'decisions',dict(movement_id=before['id'],created_at=stamp,action='aceptar',before_json=json.dumps(before,ensure_ascii=False),after_json=json.dumps(after,ensure_ascii=False),note='Confirmacion masiva de pendientes filtrados; se conservan como compras independientes.'))
+            note='Confirmacion masiva de pendientes filtrados; se conservan como compras independientes.' if action=='aceptar' else 'Desestimacion masiva de pendientes filtrados; recuperables en Descartados.'
+            g.insert(db,'decisions',dict(movement_id=before['id'],created_at=stamp,action=action,before_json=json.dumps(before,ensure_ascii=False),after_json=json.dumps(after,ensure_ascii=False),note=note))
         db.commit()
-        return dict(confirmed=len(rows),skipped=info['skipped'])
+        return {('confirmed' if action=='aceptar' else 'discarded'):len(rows),'skipped':info['skipped']}
     except Exception:
         db.rollback();raise
