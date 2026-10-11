@@ -65,12 +65,13 @@ export default function Ledger({
     setPage(1);
     setFilters({ ...filters, [k]: v });
   };
-  async function prepare() {
+  async function prepare(action = "aceptar") {
     setBusy(true);
     setError("");
     try {
       setBulk({
-        plan: await post("/api/bulk-preview", { filters }),
+        plan: await post("/api/bulk-preview", { filters, action }),
+        action,
         filters: { ...filters },
       });
     } catch (e) {
@@ -86,9 +87,10 @@ export default function Ledger({
       await post("/api/bulk-confirm", {
         filters: bulk.filters,
         token: bulk.plan.token,
+        action: bulk.action,
       });
       setBulk(null);
-      await onChanged("Movimientos confirmados");
+      await onChanged(bulk.action === "descartar" ? "Movimientos desestimados" : "Movimientos confirmados");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -264,10 +266,13 @@ export default function Ledger({
           <button
             className="primary"
             disabled={busy || !p.selected}
-            onClick={prepare}
+            onClick={() => prepare()}
           >
             <CheckCheck />
             Confirmar todos
+          </button>
+          <button className="secondary" disabled={busy || !p.selected} onClick={() => prepare("descartar")}>
+            <ArchiveX />Desestimar todos
           </button>
         </section>
       )}
@@ -382,18 +387,21 @@ export default function Ledger({
       {bulk && (
         <Modal
           id="bulkDialog"
-          title="Confirmar pendientes"
+          title={bulk.action === "descartar" ? "Desestimar pendientes" : "Confirmar pendientes"}
           busy={busy}
           onClose={() => setBulk(null)}
         >
           <p>
-            <b>{bulk.plan.eligible} movimientos</b> se confirmarán en todas las
+            <b>{bulk.plan.eligible} movimientos</b> se {bulk.action === "descartar" ? "desestimarán" : "confirmarán"} en todas las
             páginas del filtro.
           </p>
-          <p>
+          {bulk.action === "descartar" ? <>
+            <p>Se moverán a Descartados y podrás recuperarlos. No se modificarán los movimientos confirmados.</p>
+            <p className="notice">Importación: {bulk.filters.batch ? batchLabel(config.batches.find((b) => String(b.id) === String(bulk.filters.batch)) || {name: bulk.filters.batch}) : "Todos los lotes"}. Se aplican los filtros actuales del hogar seleccionado.</p>
+          </> : <p>
             Las coincidencias se conservarán como compras independientes. Las
             categorías y repartos no cambiarán.
-          </p>
+          </p>}
           {bulk.plan.skipped.length > 0 && (
             <div className="notice">
               {bulk.plan.skipped.length} seguirán pendientes.
@@ -420,8 +428,8 @@ export default function Ledger({
               disabled={busy || !bulk.plan.eligible}
               onClick={confirm}
             >
-              <CheckCheck />
-              Confirmar {bulk.plan.eligible}
+              {bulk.action === "descartar" ? <ArchiveX /> : <CheckCheck />}
+              {bulk.action === "descartar" ? "Desestimar" : "Confirmar"} {bulk.plan.eligible}
             </button>
           </div>
         </Modal>

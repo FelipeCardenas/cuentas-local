@@ -173,7 +173,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByLabel("Mes", { exact: true }).selectOption("09");
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
   await expect(page.locator("#weeklyStatistics tfoot")).toContainText("12.000");
-  await expect(page.locator("#weeklyStatistics .table-wrap").first().locator("tbody tr")).toHaveCount(5);
+  await expect(page.locator("#weeklyStatistics > .table-wrap").first().locator("tbody tr")).toHaveCount(5);
+  await page.locator("#weeklyStatistics .stats-bar-detail summary").click();
+  await expect(page.locator("#weeklyStatistics .stats-bar-detail table")).toContainText("6.000");
+  await page.locator("#weeklyStatistics .stats-bar-detail summary").click();
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("12");
   await expect(page.locator("#weeklyStatistics")).toContainText("Sin gastos confirmados en este mes.");
   await page.getByLabel("Mes semanal", { exact: true }).selectOption("09");
@@ -223,6 +226,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByRole("button", { name: /^Revisión/ }).click();
   await page.getByLabel("Año", { exact: true }).selectOption("");
   await page.getByLabel("Mes", { exact: true }).selectOption("");
+  await page.getByRole("button", { name: "Desestimar todos", exact: true }).click();
+  await expect(page.locator("#bulkDialog")).toContainText("No se modificarán los movimientos confirmados");
+  await page.locator("#bulkDialog").getByRole("button", {name: "Cancelar", exact: true}).click();
+  await expect(page.locator("#bulkDialog")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Confirmar todos", exact: true })
     .click();

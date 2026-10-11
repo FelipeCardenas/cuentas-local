@@ -230,8 +230,9 @@ class Handler(BaseHTTPRequestHandler):
                         return self.send(g.import_bank(db,self.ledger_path,file,month))
                 if url.path in ('/api/bulk-preview','/api/bulk-confirm'):
                     data=json.loads(body);filters=data.get('filters',{})
-                    if url.path=='/api/bulk-preview':return self.send(bulk.plan(db,filters)[0])
-                    return self.send(bulk.confirm(db,filters,data.get('token')))
+                    action=data.get('action','aceptar')
+                    if url.path=='/api/bulk-preview':return self.send(bulk.plan(db,filters,action)[0])
+                    return self.send(bulk.confirm(db,filters,data.get('token'),action))
                 if url.path=='/api/categories':
                     return self.send(categorias.change(db,json.loads(body)))
                 if url.path in ('/api/cut-preview','/api/cut-save','/api/cut-cancel'):

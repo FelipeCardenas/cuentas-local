@@ -28,11 +28,19 @@ def categories(db, query):
         amount, params = f'm.{person}', []
     else:
         amount, params = '(SELECT a.amount FROM allocations a WHERE a.movement_id=m.id AND a.person_id=?)', [person]
-    rows = db.execute(f"""SELECT COALESCE(NULLIF(category,''),'Sin categoria') category,
+    allocations = {}
+    if members and person == 'total':
+        for allocation in db.execute(f"""SELECT a.movement_id,a.person_id,a.amount FROM allocations a
+                JOIN movements m ON m.id=a.movement_id WHERE m.state='aceptado'
+                AND m.kind IN ('gasto','devolucion') AND {expression} BETWEEN ? AND ?""",
+                (f'{year}-01', f'{year}-12')):
+            allocations.setdefault(allocation['movement_id'], {})[allocation['person_id']] = allocation['amount']
+    rows = db.execute(f"""SELECT m.rowid id, m.mi, m.amor, COALESCE(NULLIF(category,''),'Sin categoria') category,
         {expression} period, kind, {amount} amount FROM movements m
         WHERE state='aceptado' AND kind IN ('gasto','devolucion')
         AND {expression} BETWEEN ? AND ?""", (*params, f'{year}-01', f'{year}-12'))
     grouped, totals = {}, [None] * 12
+    breakdown = {}
     purchases, counts = [0] * 12, [0] * 12
     for row in rows:
         if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', row['period'] or ''):
@@ -42,12 +50,19 @@ def categories(db, query):
         value = row['amount'] or 0
         values[index] = (values[index] or 0) + value
         totals[index] = (totals[index] or 0) + value
+        if person == 'total':
+            parts = allocations.get(row['id'], {}) if members else {'mi': row['mi'], 'amor': row['amor']}
+            category_parts = breakdown.setdefault(row['category'], {})
+            for key, part in parts.items():
+                values_by_person = category_parts.setdefault(key, [None] * 12)
+                values_by_person[index] = (values_by_person[index] or 0) + (part or 0)
         if row['kind'] == 'gasto':
             purchases[index] += value
             counts[index] += int(person == 'total' or value != 0)
     public = lambda values: [g.decimal(v) if v is not None else None for v in values]
     return dict(year=year, years=years, people=members, basis=basis, person=person,
-                rows=[dict(name=name, months=public(values), total=g.decimal(sum(v or 0 for v in values)))
+                rows=[dict(name=name, months=public(values), total=g.decimal(sum(v or 0 for v in values)),
+                           people={key: public(parts) for key, parts in breakdown.get(name, {}).items()})
                       for name, values in sorted(grouped.items())], totals=public(totals),
                 purchases=public(purchases), counts=counts)
 
