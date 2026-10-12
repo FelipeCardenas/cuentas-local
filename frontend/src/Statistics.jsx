@@ -6,6 +6,7 @@ import { useQuery, Status, Field, Metrics } from "./ui";
 import { money, pct, months, average, projection } from "./domain";
 import { expenseDatasets, chartColors, barGroups } from "./chartData";
 import { barValueLabels } from "./chartLabels";
+import { useTheme } from "./Theme.jsx";
 function Graph({
   labels = months,
   datasets,
@@ -14,10 +15,14 @@ function Graph({
   label,
 }) {
   const ref = useRef();
+  const theme = useTheme();
   const stacked = datasets.some((d) => d.stack);
   const groups = Math.max(1, ...labels.map((_, index) => barGroups(datasets).filter((group) => group.some((i) => datasets[i].data[index] != null)).length));
   const minWidth = type === "bar" ? (horizontal ? 460 : labels.length * groups * 34 + 70) : undefined;
   useEffect(() => {
+    const colors = getComputedStyle(document.documentElement);
+    const textColor = colors.getPropertyValue("--chart-text").trim();
+    const gridColor = colors.getPropertyValue("--chart-grid").trim();
     const chart = new Chart(ref.current, {
       type,
       data: {
@@ -34,6 +39,7 @@ function Graph({
       },
       plugins: [barValueLabels],
       options: {
+        color: textColor,
         responsive: true,
         maintainAspectRatio: false,
         indexAxis: horizontal ? "y" : "x",
@@ -48,12 +54,14 @@ function Graph({
           },
         },
         scales: {
-          [horizontal ? "y" : "x"]: { stacked },
+          [horizontal ? "y" : "x"]: { stacked, ticks: { color: textColor }, grid: { color: gridColor } },
           [horizontal ? "x" : "y"]: {
             stacked,
+            grid: { color: gridColor },
             beginAtZero: true,
             grace: type === "bar" ? "35%" : 0,
             ticks: {
+              color: textColor,
               callback: (v) =>
                 new Intl.NumberFormat("es-CL", { notation: "compact" }).format(
                   v,
@@ -64,7 +72,7 @@ function Graph({
       },
     });
     return () => chart.destroy();
-  }, [labels, datasets, type, horizontal, stacked]);
+  }, [labels, datasets, type, horizontal, stacked, theme]);
   return (
     <>
     <div className="stats-chart-scroll" tabIndex={0} role="region" aria-label={label}>

@@ -1,0 +1,102 @@
+// Uses only a newly created synthetic database, never the production volume.
+const { chromium, expect } = require("@playwright/test");
+const { spawn, spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const net = require("node:net");
+const root = path.resolve(__dirname, "../..");
+const work = path.join(root, "work", "interface-qa");
+fs.mkdirSync(work, {recursive: true});
+const folder = fs.mkdtempSync(path.join(work, "synthetic-"));
+const python = process.env.PYTHON || "python";
+let server, browser;
+(async () => {
+  const seed = spawnSync(python, [path.join(__dirname, "seed.py"), folder], {encoding:"utf8"});
+  if (seed.status) throw Error(seed.stderr);
+  const port = await new Promise(resolve => {
+    const socket = net.createServer();
+    socket.listen(0, "127.0.0.1", () => {const port=socket.address().port; socket.close(() => resolve(port));});
+  });
+  const url = `http://127.0.0.1:${port}`;
+  server = spawn(python, [path.join(root,"cuentas/servidor.py"), "--db",path.join(folder,"test.sqlite3"),"--port",String(port)], {stdio:"ignore"});
+  for (let i=0;i<100;i++) {
+    try { if ((await fetch(url+"/api/session")).ok) break; } catch {}
+    await new Promise(r=>setTimeout(r,100));
+  }
+  browser = await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL ? {channel:process.env.PLAYWRIGHT_CHANNEL} : {})});
+  const page = await browser.newPage({viewport:{width:1440,height:1000},colorScheme:"light"});
+  const errors=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  page.on("dialog",d=>d.accept());
+  await page.goto(url);
+  await page.getByLabel("Nombre de la cuenta",{exact:true}).fill("Prueba Tema");
+  await page.getByLabel("Correo",{exact:true}).fill("tema@example.test");
+  await page.getByLabel("Contraseña",{exact:true}).fill("Solo pruebas 123456");
+  await page.getByRole("button",{name:"Crear cuenta",exact:true}).click();
+  await expect(page.locator(".pagination")).toContainText("40 movimientos");
+  await page.getByRole("button",{name:"Cambiar a modo oscuro",exact:true}).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+  await expect(page.locator("#ledger tbody tr")).toHaveCount(35);
+  await page.screenshot({path:path.join(work,"dark-desktop.png"),fullPage:true});
+  const table=await page.locator("#ledger .table-wrap").elementHandle();
+  const row=page.locator("#ledger tbody tr").nth(2);
+  const confirm=row.getByRole("button",{name:/^Confirmar movimiento/});
+  const label=await confirm.getAttribute("aria-label");
+  let release;
+  let started;
+  const requestStarted=new Promise(resolve=>{started=resolve;});
+  const gate=new Promise(resolve=>{release=resolve;});
+  await page.route("**/api/movements?**",async route=>{
+    const response=await route.fetch();
+    started();
+    await gate;
+    await route.fulfill({response});
+  });
+  await confirm.click();
+  await requestStarted;
+  await expect(page.locator("#ledger .table-wrap")).toHaveAttribute("aria-busy","true");
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  await expect(page.getByRole("button",{name:label,exact:true})).toBeDisabled();
+  await expect(page.locator("#ledger").getByText("Cargando…",{exact:true})).toHaveCount(0);
+  release();
+  await expect(page.locator(".pagination")).toContainText("39 movimientos");
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  await expect(page.getByRole("button",{name:label,exact:true})).toHaveCount(0);
+  await page.unroute("**/api/movements?**");
+  await page.locator("#ledger tbody tr").first().getByRole("button",{name:/^Revisar movimiento/}).click();
+  await expect(page.locator("#drawer .detail-description")).toBeVisible();
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  await page.screenshot({path:path.join(work,"dark-detail.png"),fullPage:true});
+  await page.locator("#drawer").getByRole("button",{name:"Guardar",exact:true}).click();
+  await expect(page.getByText("Revisión guardada",{exact:true})).toBeVisible();
+  await page.locator("#drawer").getByRole("button",{name:"Cerrar",exact:true}).click();
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  await page.locator("#ledger tbody tr").first().getByRole("button",{name:/^Rechazar movimiento/}).click();
+  await expect(page.locator(".pagination")).toContainText("38 movimientos");
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  // A refresh failure must keep the list and allow a GET retry, not repeat the POST.
+  await page.route("**/api/movements?**", route=>route.abort());
+  await page.locator("#ledger tbody tr").first().getByRole("button",{name:/^Confirmar movimiento/}).click();
+  await expect(page.getByRole("button",{name:"Reintentar actualización",exact:true})).toBeVisible();
+  expect(await table.evaluate(el=>el.isConnected)).toBe(true);
+  await page.unroute("**/api/movements?**");
+  await page.getByRole("button",{name:"Reintentar actualización",exact:true}).click();
+  await expect(page.locator(".pagination")).toContainText("37 movimientos");
+  await page.getByRole("button",{name:"Estadísticas",exact:true}).click();
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await page.screenshot({path:path.join(work,"dark-statistics.png"),fullPage:true});
+  await page.getByRole("button",{name:"Cambiar a modo claro",exact:true}).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","light");
+  await page.getByRole("button",{name:/Revisión/}).first().click();
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole("button",{name:"Cambiar a modo oscuro",exact:true}).click();
+  await page.screenshot({path:path.join(work,"dark-mobile.png"),fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+  console.log("PASS: persisted themes; desktop/mobile; charts; stable table during quick accept, detail save and reject.");
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{
+  if(browser) await browser.close();
+  if(server) server.kill();
+});

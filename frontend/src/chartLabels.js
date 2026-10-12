@@ -22,7 +22,7 @@ export const barValueLabels = {
         const end = horizontal
           ? Math.max(...parts.flatMap((p) => [p.bar.x, p.bar.base]))
           : (positive ? Math.min(...parts.map((p) => p.bar.y)) : Math.max(...parts.map((p) => p.bar.y)));
-        ctx.fillStyle = "#263c37";
+        ctx.fillStyle = chart.options.color || "#263c37";
         ctx.textAlign = horizontal ? "left" : "center";
         ctx.textBaseline = horizontal ? "middle" : (positive ? "bottom" : "top");
         if (!horizontal && parts[0].bar.width < ctx.measureText(text).width + 8) {
