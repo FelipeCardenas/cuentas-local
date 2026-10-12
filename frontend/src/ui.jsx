@@ -9,31 +9,40 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "./api";
 import { states } from "./domain";
 
-export function useQuery(path, revision = 0) {
+export function useQuery(path, revision = 0, keepPrevious = false) {
   const [result, setResult] = useState({
     data: null,
     error: "",
     loading: true,
+    path: null,
+    revision: null,
   });
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    setResult({ data: null, error: "", loading: !!path });
+    setResult((previous) => ({
+      data: keepPrevious && path ? previous.data : null,
+      error: "", loading: !!path, path, revision,
+    }));
     if (path)
       api(path, { signal: controller.signal })
         .then((data) => {
-          if (active) setResult({ data, error: "", loading: false });
+          if (active) setResult({ data, error: "", loading: false, path, revision });
         })
         .catch((e) => {
           if (active && e.name !== "AbortError")
-            setResult({ data: null, error: e.message, loading: false });
+            setResult((previous) => ({ ...previous,
+              data: keepPrevious ? previous.data : null,
+              error: e.message, loading: false,
+            }));
         });
     return () => {
       active = false;
       controller.abort();
     };
-  }, [path, revision]);
-  return result;
+  }, [path, revision, keepPrevious]);
+  const pending = !!path && (result.loading || result.path !== path || result.revision !== revision);
+  return { ...result, loading: pending && !result.data, refreshing: pending && !!result.data };
 }
 export function useGuard(enabled) {
   useEffect(() => {

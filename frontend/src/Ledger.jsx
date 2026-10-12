@@ -26,7 +26,8 @@ export default function Ledger({
   const [page, setPage] = useState(1),
     [error, setError] = useState(""),
     [bulk, setBulk] = useState(null),
-    [busy, setBusy] = useState(false);
+    [retry, setRetry] = useState(0),
+    [mutating, setBusy] = useState(false);
   const key = JSON.stringify(filters);
   const rowLock = useRef(false);
   async function quickReview(r, action) {
@@ -51,8 +52,10 @@ export default function Ledger({
     invalid
       ? null
       : "/api/movements?" + new URLSearchParams({ ...filters, page }),
-    revision,
+    `${revision}:${retry}`,
+    true,
   );
+  const busy = mutating || query.refreshing || !!query.error;
   const data = query.data;
   useEffect(() => {
     if (data) {
@@ -60,7 +63,7 @@ export default function Ledger({
       if (page > data.pages) setPage(data.pages);
     }
   }, [data]);
-  useGuard(busy);
+  useGuard(mutating);
   const change = (k, v) => {
     setPage(1);
     setFilters({ ...filters, [k]: v });
@@ -244,6 +247,9 @@ export default function Ledger({
         }
       />
       <Status {...query} />
+      {query.error && <button className="secondary" onClick={() => setRetry((n) => n + 1)}>
+        Reintentar actualización
+      </button>}
       {p && filters.state === "pendiente" && (
         <section className="pending-strip">
           {config.people.map((person) => (
@@ -305,7 +311,7 @@ export default function Ledger({
       </div>
       {data && (
         <>
-          <div className="table-wrap">
+          <div className="table-wrap" aria-busy={query.refreshing}>
             <table>
               <thead>
                 <tr>
